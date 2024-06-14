@@ -20,7 +20,7 @@ def read_bytes(
 
 def read_one_asf(url: str) -> tuple[np.ndarray, dict]:
     img_bytes = read_bytes(url)
-    with MemoryFile(img_bytes, filename=url.split("/")[-1]) as memfile:
+    with MemoryFile(img_bytes, filename=url.split('/')[-1]) as memfile:
         with memfile.open() as dataset:
             arr = dataset.read(1).astype(np.float32)
             prof = dataset.profile
