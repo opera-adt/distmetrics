@@ -11,7 +11,6 @@ dependencies:
  - gdal
  - pydantic
  - astropy
- # For workflows
  - jupyterlab
  - tqdm
  - shapely
@@ -21,3 +20,10 @@ dependencies:
  - asf_search
  - geopandas
  - pandas
+ - flake8
+ - flake8-blind-except
+ - flake8-builtins
+ - flake8-import-order
+ - pytest
+ - pytest-cov
+ - ruff
