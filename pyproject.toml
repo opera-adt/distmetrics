@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'distmetrics'
+requires-python = '>=3.10'
+authors = [
+    {name ='Jungkyo Jung, Charlie Marshak, Talib Oliver-Cabrera, Richard West and OPERA Team', email ='opera-pst-dev@jpl.nasa.gov'}
+]
+description = 'Measure Disturbances in OPERA RTC-S1 Stacks'
+license = {text = 'Apache-2.0'}
+classifiers = [
+    'Intended Audience :: Science/Research',
+    'Natural Language :: English',
+    'Operating System :: OS Independent',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+]
+
+dynamic = ['version', 'readme']
+
+dependencies = [
+        'affine',
+        'rasterio',
+        'numpy',
+        'scikit-image',
+        'matplotlib',
+        'scipy',
+        'pydantic',
+        'astropy',
+]
+
+[project.optional-dependencies]
+develop = [
+    "pytest",
+    "pytest-cov",
+    "flake8",
+    "flake8-import-order",
+    "flake8-blind-except",
+    "flake8-builtins",
+    "jupyterlab",
+]
+
+[project.urls]
+Homepage = "https://github.com/OPERA-Cal-Val/dist-s1"
+"Bug Tracker" = "https://github.com/OPERA-Cal-Val/dist-s1/issues"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = true
+
+[tool.setuptools.packages.find]
+where = ['src']
+exclude = ['notebooks*', 'tests*']
+
+[tool.setuptools.dynamic]
+readme = { file = ['README.md'], content-type = 'text/markdown' }
+
+[tool.setuptools_scm]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+
+
+[tool.pytest.ini_options]
+markers = [
+    "Integration: marks tests as (slow) integration and requiring internet (deselect with '-m \"not integration\"')"]
+
+testpaths = ["tests"]

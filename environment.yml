@@ -1,0 +1,23 @@
+name: dist-s1
+dependencies:
+ - python>=3.10
+ - pip
+ - scikit-image
+ - numpy
+ - scipy
+ - matplotlib
+ - rasterio
+ - astropy
+ - gdal
+ - pydantic
+ - astropy
+ # For workflows
+ - jupyterlab
+ - tqdm
+ - shapely
+ - mpire
+ - requests
+ - backoff
+ - asf_search
+ - geopandas
+ - pandas
