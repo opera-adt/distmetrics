@@ -197,11 +197,18 @@ def eigh2d(cov_mat: np.ndarray) -> np.ndarray:
     return eigval, eigvec
 
 
-def _compute_mahalanobis_dist(
-    pre_arrs: np.ndarray, post_arr: np.ndarray, kernel_width=5, kernel_height=5, eig_lb: float = 0.0001 * np.sqrt(2)
+def _compute_mahalanobis_dist_2d(
+    pre_arrs: np.ndarray,
+    post_arr: np.ndarray,
+    kernel_width=5,
+    kernel_height=5,
+    eig_lb: float = 0.0001 * np.sqrt(2),
+    unbiased: bool = True,
 ) -> tuple[np.ndarray]:
     mu_st = get_spatiotemporal_mu(pre_arrs, kernel_width=kernel_width, kernel_height=kernel_height)
-    covar_st = get_spatiotemporal_covar(pre_arrs, mu_st=mu_st, kernel_width=kernel_width, kernel_height=kernel_height)
+    covar_st = get_spatiotemporal_covar(
+        pre_arrs, mu_st=mu_st, kernel_width=kernel_width, kernel_height=kernel_height, unbiased=unbiased
+    )
 
     eigval, eigvec = eigh2d(covar_st)
     # This is the floor we discused earlier except this is for the variance matrix so our LB is .01
@@ -214,10 +221,10 @@ def _compute_mahalanobis_dist(
     diag_matrix[0, 0, ...] = eigval_clip_inv[0, ...]
     diag_matrix[1, 1, ...] = eigval_clip_inv[1, ...]
 
-    # Matrix multiplication to reconstruct the Sigma^-1  = V^T D V where V is the
+    # Matrix multiplication to reconstruct the Sigma^-1  = V D V.T where V is the
     # matrix whose colums are eignevectors and D is the diagonal matrix of eigenvalues
-    covar_st_inv_floor_t = np.einsum('ijmn,jkmn->ikmn', diag_matrix, eigvec)
-    covar_st_inv_floor = np.einsum('ijmn,jkmn->ikmn', eigvec.transpose([1, 0, 2, 3]), covar_st_inv_floor_t)
+    covar_st_inv_floor_t = np.einsum('ijmn,jkmn->ikmn', diag_matrix, eigvec.transpose([1, 0, 2, 3]))
+    covar_st_inv_floor = np.einsum('ijmn,jkmn->ikmn', eigvec, covar_st_inv_floor_t)
 
     # Compute the Mahalanobis distance!
     vec = post_arr - mu_st
@@ -233,20 +240,21 @@ def _transform_pre_arrs(pre_arrs_vv: list[np.ndarray], pre_arrs_vh: list[np.ndar
     return ts
 
 
-def compute_mahalonobis_dist(
+def compute_mahalonobis_dist_2d(
     pre_arrs_vv: list[np.ndarray],
     pre_arrs_vh: list[np.ndarray],
     post_arr_vv: np.ndarray,
     post_arr_vh: np.ndarray,
     kernel_size: int = 3,
     eig_lb: float = 0.0001 * np.sqrt(2),
+    unbiased: bool = True,
 ) -> np.ndarray:
     # T x 2 x H x C arr
     pre_arrs = _transform_pre_arrs(pre_arrs_vv, pre_arrs_vh)
     # 2 x H x C
     post_arr = np.stack([post_arr_vv, post_arr_vh], axis=0)
-    mu_st, cov_st, covar_st_inv, dist = _compute_mahalanobis_dist(
-        pre_arrs, post_arr, kernel_height=kernel_size, kernel_width=kernel_size, eig_lb=eig_lb
+    mu_st, cov_st, covar_st_inv, dist = _compute_mahalanobis_dist_2d(
+        pre_arrs, post_arr, kernel_height=kernel_size, kernel_width=kernel_size, eig_lb=eig_lb, unbiased=unbiased
     )
     distance = MahalanobisDistance2d(dist=dist, mean=mu_st, cov=cov_st, cov_inv=covar_st_inv)
     return distance

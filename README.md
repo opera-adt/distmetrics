@@ -3,7 +3,7 @@
 
 ## Background
 
-This is a python implementation of disturbance metrics for OPERA RTC-S1 Algorithms. Right now, it has the Mahalanobis distance for dual polarization imagary.
+This is a python implementation of disturbance metrics for OPERA RTC-S1 data. Right now, it has the Mahalanobis distance for dual polarization imagary. The intention is to use this library to systematically define disturbance in the RTC imagery.
 
 
 ## Installation for development
