@@ -1,14 +1,11 @@
 import numpy as np
-from scipy.spatial.distance import mahalanobis
-
 from distmetrics.mahalanobis2d import (
+    compute_mahalonobis_dist_2d,
     eigh2d,
     get_spatiotemporal_covar,
     get_spatiotemporal_mu,
     get_spatiotemporal_var,
-    compute_mahalonobis_dist_2d,
 )
-
 
 np.random.seed(0)
 
