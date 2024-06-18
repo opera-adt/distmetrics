@@ -14,7 +14,6 @@ dependencies:
  - jupyterlab
  - tqdm
  - shapely
- - mpire
  - requests
  - backoff
  - asf_search
