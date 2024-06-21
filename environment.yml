@@ -18,6 +18,8 @@ dependencies:
  - backoff
  - asf_search
  - mpire
+ - multiprocess
+ - dill
  - geopandas
  - pandas
  - flake8
