@@ -1,8 +1,6 @@
-from multiprocessing import Pool
-
 import numpy as np
+from mpire import WorkerPool
 from skimage.restoration import denoise_tv_bregman
-from tqdm import tqdm
 
 
 def despeckle_one_rtc_arr_with_tv(X: np.ndarray, reg_param: float = 5, noise_floor_db: float = -22) -> np.ndarray:
@@ -23,6 +21,8 @@ def despeckle_rtc_arrs_with_tv(
     def dspkl(X: np.ndarray):
         return despeckle_one_rtc_arr_with_tv(X, reg_param=reg_param, noise_floor_db=noise_floor_db)
 
-    with Pool(n_jobs) as pool:
-        arrs_dspk = pool.map(dspkl, tqdm(arrs, desc='Despeckling RTC'))
+    with WorkerPool(n_jobs=n_jobs, use_dill=True) as pool:
+        arrs_dspk = pool.map(
+            dspkl, arrs, progress_bar=True, progress_bar_style='notebook', concatenate_numpy_output=False
+        )
     return arrs_dspk
