@@ -1,5 +1,6 @@
+from multiprocessing import Pool
+
 import numpy as np
-from multiprocess import Pool
 from skimage.restoration import denoise_tv_bregman
 from tqdm import tqdm
 
