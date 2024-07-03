@@ -5,7 +5,7 @@ import backoff
 import numpy as np
 import requests
 from rasterio.io import MemoryFile
-from requests.exceptions import HTTPError, ConnectionError
+from requests.exceptions import HTTPError
 from tqdm import tqdm
 
 
