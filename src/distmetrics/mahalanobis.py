@@ -3,6 +3,24 @@ from astropy.convolution import convolve
 from pydantic import BaseModel, model_validator
 
 
+class MahalanobisDistance1d(BaseModel):
+    dist: np.ndarray
+    mean: np.ndarray
+    std: np.ndarray
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @model_validator(mode='after')
+    def check_shape(cls, values: dict) -> dict:
+        dist = values.dist
+        mean = values.mean
+        std = values.std
+
+        if any([dist.shape != arr.shape for arr in [std, mean]]):
+            raise ValueError('All arrays must have same shape')
+
+
 class MahalanobisDistance2d(BaseModel):
     dist: np.ndarray
     mean: np.ndarray
@@ -31,16 +49,36 @@ class MahalanobisDistance2d(BaseModel):
         return values
 
 
-def get_spatiotemporal_mu_1d(arrs: np.ndarray, kernel_width=3, kernel_height=3) -> np.ndarray:
-    k_shape = (1, kernel_height, kernel_width)
+def get_spatiotemporal_mu_1d(arrs: np.ndarray, window_size=3) -> np.ndarray:
+    k_shape = (1, window_size, window_size)
     kernel = np.ones(k_shape, dtype=np.float32) / np.prod(k_shape)
 
-    mus_spatial = convolve(arrs, kernel, boundary='extend', nan_treatment='interpolate')
-    mu_st = np.mean(mus_spatial, axis=0)
+    mu_spatial = convolve(arrs, kernel, boundary='extend', nan_treatment='interpolate')
+    mu_st = np.nanmean(mu_spatial, axis=0)
     return mu_st
 
 
-def get_spatiotemporal_mu(arr_st: np.ndarray, kernel_width=3, kernel_height=3) -> np.ndarray:
+def get_spatiotemporal_var_1d(
+    arrs: np.ndarray, mu: np.ndarray = None, window_size=3, unbiased: bool = True
+) -> np.ndarray:
+    T = arrs.shape[0]
+    if mu is None:
+        mu = get_spatiotemporal_mu_1d(arrs, window_size=window_size)
+
+    k_shape = (1, window_size, window_size)
+    N = T * window_size * window_size
+    kernel = np.ones(k_shape, dtype=np.float32) / N
+
+    var_spatial = convolve(arrs**2, kernel, boundary='extend', nan_treatment='interpolate', fill_value=0)
+    var_spatial -= mu**2
+    # np.mean vs. np.nanmean - np.mean we exclude pixels where np.nan has occurred anywhere in time series
+    var_st = np.nanmean(var_spatial, axis=0)
+    if unbiased:
+        var_st *= N / (N - 1)
+    return var_st
+
+
+def get_spatiotemporal_mu(arr_st: np.ndarray, window_size=3) -> np.ndarray:
     if len(arr_st.shape) != 4:
         raise ValueError('We are expecting array of shape T x 2 x H x W')
     _, C, H, W = arr_st.shape
@@ -51,49 +89,42 @@ def get_spatiotemporal_mu(arr_st: np.ndarray, kernel_width=3, kernel_height=3) -
     return mu_st
 
 
-def get_spatiotemporal_var(
-    arr_st: np.ndarray, mu_st=None, kernel_width=3, kernel_height=3, unbiased: bool = False
-) -> np.ndarray:
+def get_spatiotemporal_var(arr_st: np.ndarray, mu_st=None, window_size=3, unbiased: bool = False) -> np.ndarray:
     if len(arr_st.shape) != 4:
         raise ValueError('We are expecting array of shape T x 2 x H x W')
     T, C, H, W = arr_st.shape
     if mu_st is None:
-        mu_st = get_spatiotemporal_mu(arr_st, kernel_width=kernel_width, kernel_height=kernel_height)
+        mu_st = get_spatiotemporal_mu(arr_st, window_size=window_size)
     else:
         # ensure there are means for each channel
         if mu_st.shape[0] != C:
             raise ValueError('The mean does not match dimension 1 of input arr_st')
 
-    k_shape = (1, kernel_height, kernel_width)
-    N = T * kernel_height * kernel_width
-
-    kernel = np.ones(k_shape, dtype=np.float32) / N
-
     var_st = np.full((C, H, W), np.nan)
     for c in range(C):
-        var_spatial_1d = convolve(
-            arr_st[:, c, ...] ** 2, kernel, boundary='extend', nan_treatment='interpolate', fill_value=0
+        var_st[c, ...] = get_spatiotemporal_var_1d(
+            arr_st[:, c, ...],
+            mu=mu_st[c, ...],
+            window_size=window_size,
+            unbiased=unbiased,
         )
-        var_spatial_1d -= mu_st[c, ...] ** 2
-        # np.mean vs. np.nanmean - np.mean we exclude pixels where np.nan has occurred anywhere in time series
-        var_st[c, ...] = np.mean(var_spatial_1d, axis=0)
-        if unbiased:
-            var_st[c, ...] *= N / (N - 1)
     return var_st
 
 
-def get_spatiotemporal_cor(arrs: np.ndarray, mu_st=None, kernel_width=3, kernel_height=3, unbiased=False) -> np.ndarray:
+def get_spatiotemporal_cor(
+    arrs: np.ndarray, mu_st: np.ndarray = None, window_size: int = 3, unbiased: bool = False
+) -> np.ndarray:
     T, C, _, _ = arrs.shape
     if C != 2:
         raise ValueError('input arrs must have 2 channels!')
     if mu_st is None:
-        mu_st = get_spatiotemporal_mu(arrs, kernel_width=kernel_width, kernel_height=kernel_height)
+        mu_st = get_spatiotemporal_mu(arrs, window_size=window_size)
     CC, _, _ = mu_st.shape
     if CC != 2:
         raise ValueError('spatiotemporal mean must be 2!')
 
-    k_shape = (1, kernel_height, kernel_width)
-    N = T * kernel_height * kernel_width
+    k_shape = (1, window_size, window_size)
+    N = T * window_size * window_size
     kernel = np.ones(k_shape, dtype=np.float32) / N
     # corr = E(XY) - mu_X mu_Y
     term_0 = convolve(
@@ -105,24 +136,20 @@ def get_spatiotemporal_cor(arrs: np.ndarray, mu_st=None, kernel_width=3, kernel_
     term_1 = mu_st[0, ...] * mu_st[1, ...]
     corr_s = term_0 - term_1
 
-    corr_st = np.mean(corr_s, axis=0)
+    corr_st = np.nanmean(corr_s, axis=0)
     if unbiased:
         corr_st *= N / (N - 1)
 
     return corr_st
 
 
-def get_spatiotemporal_covar(
-    arrs: np.ndarray, mu_st=None, kernel_width=3, kernel_height=3, unbiased=True
-) -> np.ndarray:
+def get_spatiotemporal_covar(arrs: np.ndarray, mu_st=None, window_size=3, unbiased=True) -> np.ndarray:
     if mu_st is None:
-        mu_st = get_spatiotemporal_mu(arrs, kernel_width=kernel_width, kernel_height=kernel_height)
+        mu_st = get_spatiotemporal_mu(arrs, window_size=window_size)
 
     _, C, H, W = arrs.shape
     cov_st = np.full((C, C, H, W), np.nan)
-    var = get_spatiotemporal_var(
-        arrs, mu_st=mu_st, kernel_width=kernel_width, kernel_height=kernel_height, unbiased=unbiased
-    )
+    var = get_spatiotemporal_var(arrs, mu_st=mu_st, window_size=window_size, unbiased=unbiased)
     for c in range(C):
         cov_st[c, c, ...] = var[c, ...]
     for c in range(C):
@@ -131,8 +158,7 @@ def get_spatiotemporal_covar(
                 covar_temp = get_spatiotemporal_cor(
                     arrs[:, [c, d], ...],
                     mu_st=mu_st[[c, d], ...],
-                    kernel_width=kernel_width,
-                    kernel_height=kernel_height,
+                    window_size=window_size,
                     unbiased=unbiased,
                 )
                 cov_st[c, d, ...] = covar_temp
@@ -200,15 +226,12 @@ def eigh2d(cov_mat: np.ndarray) -> np.ndarray:
 def _compute_mahalanobis_dist_2d(
     pre_arrs: np.ndarray,
     post_arr: np.ndarray,
-    kernel_width=5,
-    kernel_height=5,
+    window_size=5,
     eig_lb: float = 0.0001 * np.sqrt(2),
     unbiased: bool = True,
 ) -> tuple[np.ndarray]:
-    mu_st = get_spatiotemporal_mu(pre_arrs, kernel_width=kernel_width, kernel_height=kernel_height)
-    covar_st = get_spatiotemporal_covar(
-        pre_arrs, mu_st=mu_st, kernel_width=kernel_width, kernel_height=kernel_height, unbiased=unbiased
-    )
+    mu_st = get_spatiotemporal_mu(pre_arrs, window_size=window_size)
+    covar_st = get_spatiotemporal_covar(pre_arrs, mu_st=mu_st, window_size=window_size, unbiased=unbiased)
 
     eigval, eigvec = eigh2d(covar_st)
     # This is the floor we discused earlier except this is for the variance matrix so our LB is .01
@@ -245,16 +268,28 @@ def compute_mahalonobis_dist_2d(
     pre_arrs_vh: list[np.ndarray],
     post_arr_vv: np.ndarray,
     post_arr_vh: np.ndarray,
-    kernel_size: int = 3,
+    window_size: int = 3,
     eig_lb: float = 0.0001 * np.sqrt(2),
     unbiased: bool = True,
-) -> np.ndarray:
+) -> MahalanobisDistance2d:
     # T x 2 x H x C arr
     pre_arrs = _transform_pre_arrs(pre_arrs_vv, pre_arrs_vh)
     # 2 x H x C
     post_arr = np.stack([post_arr_vv, post_arr_vh], axis=0)
     mu_st, cov_st, covar_st_inv, dist = _compute_mahalanobis_dist_2d(
-        pre_arrs, post_arr, kernel_height=kernel_size, kernel_width=kernel_size, eig_lb=eig_lb, unbiased=unbiased
+        pre_arrs, post_arr, window_size=window_size, eig_lb=eig_lb, unbiased=unbiased
     )
     distance = MahalanobisDistance2d(dist=dist, mean=mu_st, cov=cov_st, cov_inv=covar_st_inv)
     return distance
+
+
+def compute_mahalonobis_dist_1d(
+    pre_arrs: list[np.ndarray], post_arr: np.ndarray, window_size: int = 3, unbiased: bool = True, min_sigma=0.01
+) -> MahalanobisDistance1d:
+    pre_arrs_s = np.stack(pre_arrs, axis=0)
+    mu = get_spatiotemporal_mu_1d(pre_arrs_s, window_size=window_size)
+    sigma = get_spatiotemporal_var_1d(pre_arrs_s, mu=mu, window_size=window_size, unbiased=unbiased)
+    sigma = np.sqrt(sigma)
+    dist = (post_arr - mu) / np.maximum(sigma, min_sigma)
+    dist_ob = MahalanobisDistance1d(dist=dist, mean=mu, std=sigma)
+    return dist_ob

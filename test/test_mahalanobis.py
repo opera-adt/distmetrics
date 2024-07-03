@@ -1,5 +1,6 @@
 import numpy as np
-from distmetrics.mahalanobis2d import (
+from distmetrics.mahalanobis import (
+    compute_mahalonobis_dist_1d,
     compute_mahalonobis_dist_2d,
     eigh2d,
     get_spatiotemporal_covar,
@@ -7,7 +8,7 @@ from distmetrics.mahalanobis2d import (
     get_spatiotemporal_var,
 )
 
-np.random.seed(0)
+np.random.seed(42)
 
 
 def test_eigh():
@@ -73,7 +74,7 @@ def test_spatiotemporal_mean():
     for n in range(N_samples):
         sample_data = np.random.randn(T, C, H, W)
         sample_data_np = sample_data.transpose([1, 0, 2, 3]).reshape((C, -1))
-        mean_st = get_spatiotemporal_mu(sample_data, kernel_height=3, kernel_width=3)[:, 1, 1]
+        mean_st = get_spatiotemporal_mu(sample_data, window_size=3)[:, 1, 1]
         mean_ex = np.mean(sample_data_np, axis=1)
         np.testing.assert_almost_equal(mean_st, mean_ex, 7)
 
@@ -87,8 +88,8 @@ def test_spatiotemporal_var():
     N_samples = 10
     for n in range(N_samples):
         sample_data = np.random.randn(T, C, H, W)
-        var_st = get_spatiotemporal_var(sample_data, kernel_height=3, kernel_width=3)[:, 1, 1]
-        var_st_unbiased = get_spatiotemporal_var(sample_data, kernel_height=3, kernel_width=3, unbiased=True)[:, 1, 1]
+        var_st = get_spatiotemporal_var(sample_data, window_size=3)[:, 1, 1]
+        var_st_unbiased = get_spatiotemporal_var(sample_data, window_size=3, unbiased=True)[:, 1, 1]
         var_np = np.var(sample_data, axis=(0, 2, 3))
         np.testing.assert_almost_equal(var_st, var_np, 7)
         np.testing.assert_almost_equal(var_st_unbiased, var_np * N / (N - 1), 7)
@@ -102,12 +103,12 @@ def test_covariance_generation():
             sample_data = np.random.randn(T, C, H, W)
             sample_data_np = sample_data.transpose([1, 0, 2, 3]).reshape((C, -1))
             cov_np = np.cov(sample_data_np, rowvar=True, bias=(not unbiased))
-            cov = get_spatiotemporal_covar(sample_data, kernel_height=3, kernel_width=3, unbiased=unbiased)
+            cov = get_spatiotemporal_covar(sample_data, window_size=3, unbiased=unbiased)
             cov_test = cov[:, :, 1, 1]
             np.testing.assert_almost_equal(cov_np, cov_test)
 
 
-def test_mahalanobis_dist():
+def test_mahalanobis_dist_2d():
     T_pre, C, H, W = 10, 2, 3, 3
     N_samples = 10
     for n in range(N_samples):
@@ -135,7 +136,7 @@ def test_mahalanobis_dist():
                 sample_data_pre_distmetrics_vh,
                 sample_data_post_distmetrics_vv,
                 sample_data_post_distmetrics_vh,
-                kernel_size=3,
+                window_size=3,
                 unbiased=unbiased,
             )
 
@@ -153,3 +154,33 @@ def test_mahalanobis_dist():
             # As noted above, the inverses (from np.linalg and using the eigenvalue decomp.) are still close
             np.testing.assert_almost_equal(dist_form_1, dist_ob.dist[..., 1, 1], decimal=7)
             np.testing.assert_almost_equal(dist_form_2, dist_ob.dist[..., 1, 1], decimal=5)
+
+
+def test_mahalanobis_dist_1d():
+    T_pre, H, W = 10, 3, 3
+    N_samples = 10
+    for n in range(N_samples):
+        for unbiased in [True, False]:
+            # Generate Data
+            sample_data_pre = np.random.randn(T_pre, H, W) * 5
+            sample_data_post = np.random.randn(H, W) * 5
+            sample_data_post_center = sample_data_post[H // 2, W // 2]
+
+            # For dist_metrics
+            sample_data_pre_distmetrics = [sample_data_pre[k, ...] for k in range(T_pre)]
+            sample_data_post_distmetrics = sample_data_post
+
+            ddof = 1 if unbiased else 0
+            sigma_np = np.nanstd(sample_data_pre, ddof=ddof)
+            dist_np = (sample_data_post_center - np.nanmean(sample_data_pre)) / sigma_np
+
+            dist_ob = compute_mahalonobis_dist_1d(
+                sample_data_pre_distmetrics,
+                sample_data_post_distmetrics,
+                window_size=3,
+                unbiased=unbiased,
+            )
+
+            # The reconstruction from eigenvalue decomposition lowers the precision
+            np.testing.assert_almost_equal(dist_np, dist_ob.dist[..., 1, 1], decimal=7)
+            np.testing.assert_almost_equal(sigma_np, dist_ob.std[..., 1, 1], decimal=7)

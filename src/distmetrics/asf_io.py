@@ -5,11 +5,11 @@ import backoff
 import numpy as np
 import requests
 from rasterio.io import MemoryFile
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, ConnectionError
 from tqdm import tqdm
 
 
-@backoff.on_exception(backoff.expo, HTTPError, max_tries=10, max_time=60, jitter=backoff.full_jitter)
+@backoff.on_exception(backoff.expo, (HTTPError, ConnectionError), max_tries=10, max_time=60, jitter=backoff.full_jitter)
 def read_bytes(
     url: str,
 ) -> bytes:
