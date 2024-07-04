@@ -172,7 +172,7 @@ def test_mahalanobis_dist_1d():
 
             ddof = 1 if unbiased else 0
             sigma_np = np.nanstd(sample_data_pre, ddof=ddof)
-            dist_np = (sample_data_post_center - np.nanmean(sample_data_pre)) / sigma_np
+            dist_np = np.abs(sample_data_post_center - np.nanmean(sample_data_pre)) / sigma_np
 
             dist_ob = compute_mahalonobis_dist_1d(
                 sample_data_pre_distmetrics,
