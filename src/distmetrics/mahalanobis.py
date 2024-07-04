@@ -227,7 +227,7 @@ def _compute_mahalanobis_dist_2d(
     pre_arrs: np.ndarray,
     post_arr: np.ndarray,
     window_size=5,
-    eig_lb: float = 0.0001 * np.sqrt(2),
+    eig_lb: float = 1e-7 * np.sqrt(2),
     unbiased: bool = True,
 ) -> tuple[np.ndarray]:
     mu_st = get_spatiotemporal_mu(pre_arrs, window_size=window_size)
@@ -284,12 +284,12 @@ def compute_mahalonobis_dist_2d(
 
 
 def compute_mahalonobis_dist_1d(
-    pre_arrs: list[np.ndarray], post_arr: np.ndarray, window_size: int = 3, unbiased: bool = True, min_sigma=0.01
+    pre_arrs: list[np.ndarray], post_arr: np.ndarray, window_size: int = 3, unbiased: bool = True, min_sigma=1e-4
 ) -> MahalanobisDistance1d:
     pre_arrs_s = np.stack(pre_arrs, axis=0)
     mu = get_spatiotemporal_mu_1d(pre_arrs_s, window_size=window_size)
     sigma = get_spatiotemporal_var_1d(pre_arrs_s, mu=mu, window_size=window_size, unbiased=unbiased)
     sigma = np.sqrt(sigma)
-    dist = (post_arr - mu) / np.maximum(sigma, min_sigma)
+    dist = np.abs(post_arr - mu) / np.maximum(sigma, min_sigma)
     dist_ob = MahalanobisDistance1d(dist=dist, mean=mu, std=sigma)
     return dist_ob
