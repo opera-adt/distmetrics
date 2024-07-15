@@ -4,7 +4,7 @@ from pydantic import BaseModel, model_validator
 
 
 class MahalanobisDistance1d(BaseModel):
-    dist: np.ndarray
+    dist: np.ndarray | list
     mean: np.ndarray
     std: np.ndarray
 
@@ -13,7 +13,7 @@ class MahalanobisDistance1d(BaseModel):
 
     @model_validator(mode='after')
     def check_shape(cls, values: dict) -> dict:
-        dist = values.dist
+        dist = values.dist if not isinstance(values.dist, list) else values.dist[0]
         mean = values.mean
         std = values.std
 
@@ -22,7 +22,7 @@ class MahalanobisDistance1d(BaseModel):
 
 
 class MahalanobisDistance2d(BaseModel):
-    dist: np.ndarray
+    dist: np.ndarray | list
     mean: np.ndarray
     cov: np.ndarray
     cov_inv: np.ndarray
@@ -35,7 +35,7 @@ class MahalanobisDistance2d(BaseModel):
         """Check that our covariance matrix is of the form 2 x 2 x H x W"""
         cov = values.cov
         cov_inv = values.cov_inv
-        dist = values.dist
+        dist = values.dist if not isinstance(values.dist, list) else values.dist[0]
         expected_shape_cov = (2, 2, dist.shape[0], dist.shape[1])
         for cov_mat in [cov, cov_inv]:
             if expected_shape_cov != cov_mat.shape:
@@ -225,11 +225,11 @@ def eigh2d(cov_mat: np.ndarray) -> np.ndarray:
 
 def _compute_mahalanobis_dist_2d(
     pre_arrs: np.ndarray,
-    post_arr: np.ndarray,
+    post_arr: np.ndarray | list,
     window_size=5,
     eig_lb: float = 1e-7 * np.sqrt(2),
     unbiased: bool = True,
-) -> tuple[np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | list]:
     mu_st = get_spatiotemporal_mu(pre_arrs, window_size=window_size)
     covar_st = get_spatiotemporal_covar(pre_arrs, mu_st=mu_st, window_size=window_size, unbiased=unbiased)
 
@@ -250,14 +250,24 @@ def _compute_mahalanobis_dist_2d(
     covar_st_inv_floor = np.einsum('ijmn,jkmn->ikmn', eigvec, covar_st_inv_floor_t)
 
     # Compute the Mahalanobis distance!
-    vec = post_arr - mu_st
-    dist_0 = np.einsum('ijkl,jkl->ikl', covar_st_inv_floor, vec)
-    dist_1 = np.einsum('ijk,ijk->jk', vec, dist_0)
-    dist = np.sqrt(dist_1)
+    def compute_distance(post_arr_t: np.ndarray) -> np.ndarray:
+        vec = post_arr_t - mu_st
+        dist_0 = np.einsum('ijkl,jkl->ikl', covar_st_inv_floor, vec)
+        dist_1 = np.einsum('ijk,ijk->jk', vec, dist_0)
+        distance = np.sqrt(dist_1)
+        return distance
+
+    if isinstance(post_arr, list):
+        dist = [compute_distance(arr) for arr in post_arr]
+    else:
+        dist = compute_distance(post_arr)
+
     return mu_st, covar_st, covar_st_inv_floor, dist
 
 
 def _transform_pre_arrs(pre_arrs_vv: list[np.ndarray], pre_arrs_vh: list[np.ndarray]) -> np.ndarray:
+    if len(pre_arrs_vh) != len(pre_arrs_vv):
+        raise ValueError('Both vv and vh pre-arrays must have the same length')
     dual_pol = [np.stack([vv, vh], axis=0) for (vv, vh) in zip(pre_arrs_vv, pre_arrs_vh)]
     ts = np.stack(dual_pol, axis=0)
     return ts
@@ -266,8 +276,8 @@ def _transform_pre_arrs(pre_arrs_vv: list[np.ndarray], pre_arrs_vh: list[np.ndar
 def compute_mahalonobis_dist_2d(
     pre_arrs_vv: list[np.ndarray],
     pre_arrs_vh: list[np.ndarray],
-    post_arr_vv: np.ndarray,
-    post_arr_vh: np.ndarray,
+    post_arr_vv: np.ndarray | list,
+    post_arr_vh: np.ndarray | list,
     window_size: int = 3,
     eig_lb: float = 0.0001 * np.sqrt(2),
     unbiased: bool = True,
@@ -275,7 +285,14 @@ def compute_mahalonobis_dist_2d(
     # T x 2 x H x C arr
     pre_arrs = _transform_pre_arrs(pre_arrs_vv, pre_arrs_vh)
     # 2 x H x C
-    post_arr = np.stack([post_arr_vv, post_arr_vh], axis=0)
+    if isinstance(post_arr_vv, list) != isinstance(post_arr_vh, list):
+        raise ValueError('Both post arrays must be both lists or arrays')
+    if isinstance(post_arr_vv, list):
+        if len(post_arr_vh) != len(post_arr_vh):
+            raise ValueError('Both post array lists must be the same size')
+        post_arr = [np.stack([vv, vh], axis=0) for (vv, vh) in zip(post_arr_vv, post_arr_vh)]
+    else:
+        post_arr = np.stack([post_arr_vv, post_arr_vh], axis=0)
     mu_st, cov_st, covar_st_inv, dist = _compute_mahalanobis_dist_2d(
         pre_arrs, post_arr, window_size=window_size, eig_lb=eig_lb, unbiased=unbiased
     )
@@ -284,12 +301,20 @@ def compute_mahalonobis_dist_2d(
 
 
 def compute_mahalonobis_dist_1d(
-    pre_arrs: list[np.ndarray], post_arr: np.ndarray, window_size: int = 3, unbiased: bool = True, min_sigma=1e-4
-) -> MahalanobisDistance1d:
+    pre_arrs: list[np.ndarray],
+    post_arr: np.ndarray | list[np.ndarray],
+    window_size: int = 3,
+    unbiased: bool = True,
+    min_sigma=1e-4,
+) -> MahalanobisDistance1d | list[MahalanobisDistance1d]:
     pre_arrs_s = np.stack(pre_arrs, axis=0)
     mu = get_spatiotemporal_mu_1d(pre_arrs_s, window_size=window_size)
     sigma = get_spatiotemporal_var_1d(pre_arrs_s, mu=mu, window_size=window_size, unbiased=unbiased)
     sigma = np.sqrt(sigma)
-    dist = np.abs(post_arr - mu) / np.maximum(sigma, min_sigma)
-    dist_ob = MahalanobisDistance1d(dist=dist, mean=mu, std=sigma)
-    return dist_ob
+    if isinstance(post_arr, list):
+        dists = [np.abs(arr - mu) / np.maximum(sigma, min_sigma) for arr in post_arr]
+        result = MahalanobisDistance1d(dist=dists, mean=mu, std=sigma)
+    else:
+        dist = np.abs(post_arr - mu) / np.maximum(sigma, min_sigma)
+        result = MahalanobisDistance1d(dist=dist, mean=mu, std=sigma)
+    return result
