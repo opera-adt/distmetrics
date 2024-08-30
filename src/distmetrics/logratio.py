@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.ndimage as ndimage
 
 from .mahalanobis import get_spatiotemporal_mu_1d
 
