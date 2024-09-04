@@ -1,4 +1,4 @@
-name: dist-s1
+name: distmetrics
 dependencies:
  - python>=3.10
  - pip
