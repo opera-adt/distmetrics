@@ -282,8 +282,8 @@ def compute_mahalonobis_dist_2d(
     eig_lb: float = 0.0001 * np.sqrt(2),
     unbiased: bool = True,
 ) -> MahalanobisDistance2d:
-    if (len(pre_arrs_vv) == 0 or len(pre_arrs_vh) == 0):
-      return []
+    if len(pre_arrs_vv) == 0 or len(pre_arrs_vh) == 0:
+        return []
     # T x 2 x H x C arr
     pre_arrs = _transform_pre_arrs(pre_arrs_vv, pre_arrs_vh)
     # 2 x H x C
@@ -310,7 +310,7 @@ def compute_mahalonobis_dist_1d(
     min_sigma=1e-4,
 ) -> MahalanobisDistance1d | list[MahalanobisDistance1d]:
     if len(pre_arrs) == 0:
-      return []
+        return []
     pre_arrs_s = np.stack(pre_arrs, axis=0)
     mu = get_spatiotemporal_mu_1d(pre_arrs_s, window_size=window_size)
     sigma = get_spatiotemporal_var_1d(pre_arrs_s, mu=mu, window_size=window_size, unbiased=unbiased)

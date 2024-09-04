@@ -22,7 +22,5 @@ def despeckle_rtc_arrs_with_tv(
         return despeckle_one_rtc_arr_with_tv(X, reg_param=reg_param, noise_floor_db=noise_floor_db)
 
     with WorkerPool(n_jobs=n_jobs, use_dill=True) as pool:
-        arrs_dspk = pool.map(
-            dspkl, arrs, progress_bar=True, progress_bar_style='std', concatenate_numpy_output=False
-        )
+        arrs_dspk = pool.map(dspkl, arrs, progress_bar=True, progress_bar_style='std', concatenate_numpy_output=False)
     return arrs_dspk
