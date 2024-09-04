@@ -1,4 +1,5 @@
 import numpy as np
+
 from distmetrics.mahalanobis import (
     compute_mahalonobis_dist_1d,
     compute_mahalonobis_dist_2d,
