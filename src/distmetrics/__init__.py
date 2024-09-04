@@ -11,5 +11,5 @@ __all__ = [
     'despeckle_rtc_arrs_with_tv',
     'get_asf_rtc_burst_ts',
     'read_asf_rtc_image_data',
-    'compute_log_ratio'
+    'compute_log_ratio',
 ]
