@@ -303,7 +303,7 @@ def compute_mahalonobis_dist_2d(
     post_arr_vh: np.ndarray | list,
     window_size: int = 3,
     eig_lb: float = 1e-4 * np.sqrt(2),
-    logit_transformed: bool = True,
+    logit_transformed: bool = False,
     unbiased: bool = True,
 ) -> MahalanobisDistance2d:
     if (len(pre_arrs_vv) == 0) or (len(pre_arrs_vh) == 0):
@@ -328,7 +328,7 @@ def compute_mahalonobis_dist_1d(
     window_size: int = 3,
     unbiased: bool = True,
     min_sigma=1e-4,
-    logit_transformed: bool = True
+    logit_transformed: bool = False
 ) -> MahalanobisDistance1d | list[MahalanobisDistance1d]:
     if len(pre_arrs) == 0:
         return []
