@@ -328,7 +328,7 @@ def compute_mahalonobis_dist_1d(
     window_size: int = 3,
     unbiased: bool = True,
     min_sigma=1e-4,
-    logit_transformed: bool = False
+    logit_transformed: bool = False,
 ) -> MahalanobisDistance1d | list[MahalanobisDistance1d]:
     if len(pre_arrs) == 0:
         return []
