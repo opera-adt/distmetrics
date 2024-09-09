@@ -238,13 +238,15 @@ def estimate_normal_params_as_logits(
     return pred_means, pred_logvars
 
 
-def get_1d_transformer_zscore(model,
-                              pre_imgs_vv: list[np.ndarray],
-                              pre_imgs_vh: list[np.ndarray],
-                              post_arr_vv: np.ndarray,
-                              post_arr_vh: np.ndarray,
-                              stride=4,
-                              agg: str | Callable = 'max') -> np.ndarray:
+def get_1d_transformer_zscore(
+    model,
+    pre_imgs_vv: list[np.ndarray],
+    pre_imgs_vh: list[np.ndarray],
+    post_arr_vv: np.ndarray,
+    post_arr_vh: np.ndarray,
+    stride=4,
+    agg: str | Callable = 'max',
+) -> np.ndarray:
     if isinstance(agg, str):
         if agg not in ['max', 'min']:
             raise NotImplementedError('We expect max/min as strings')
