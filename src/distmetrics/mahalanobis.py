@@ -1,6 +1,7 @@
 import numpy as np
 from astropy.convolution import convolve
 from pydantic import BaseModel, model_validator
+from scipy.special import logit
 
 
 class MahalanobisDistance1d(BaseModel):
@@ -265,12 +266,34 @@ def _compute_mahalanobis_dist_2d(
     return mu_st, covar_st, covar_st_inv_floor, dist
 
 
-def _transform_pre_arrs(pre_arrs_vv: list[np.ndarray], pre_arrs_vh: list[np.ndarray]) -> np.ndarray:
+def _transform_pre_arrs(
+    pre_arrs_vv: list[np.ndarray], pre_arrs_vh: list[np.ndarray], logit_transformed: bool = False
+) -> np.ndarray:
     if len(pre_arrs_vh) != len(pre_arrs_vv):
         raise ValueError('Both vv and vh pre-arrays must have the same length')
     dual_pol = [np.stack([vv, vh], axis=0) for (vv, vh) in zip(pre_arrs_vv, pre_arrs_vh)]
     ts = np.stack(dual_pol, axis=0)
+    if logit_transformed:
+        ts = logit(ts)
     return ts
+
+
+def _transform_post_arrs(
+    post_arr_vv: list | np.ndarray, post_arr_vh: list | np.ndarray, logit_transformed: bool = False
+) -> np.ndarray:
+    if isinstance(post_arr_vv, list) != isinstance(post_arr_vh, list):
+        raise ValueError('Both post arrays must be both lists or arrays')
+
+    if isinstance(post_arr_vv, list):
+        if len(post_arr_vh) != len(post_arr_vh):
+            raise ValueError('Both post array lists must be the same size')
+        post_arr = [np.stack([vv, vh], axis=0) for (vv, vh) in zip(post_arr_vv, post_arr_vh)]
+    else:
+        post_arr = np.stack([post_arr_vv, post_arr_vh], axis=0)
+
+    if logit_transformed:
+        post_arr = logit(post_arr)
+    return post_arr
 
 
 def compute_mahalonobis_dist_2d(
@@ -279,22 +302,19 @@ def compute_mahalonobis_dist_2d(
     post_arr_vv: np.ndarray | list,
     post_arr_vh: np.ndarray | list,
     window_size: int = 3,
-    eig_lb: float = 0.0001 * np.sqrt(2),
+    eig_lb: float = 1e-4 * np.sqrt(2),
+    logit_transformed: bool = True,
     unbiased: bool = True,
 ) -> MahalanobisDistance2d:
-    if len(pre_arrs_vv) == 0 or len(pre_arrs_vh) == 0:
-        return []
+    if (len(pre_arrs_vv) == 0) or (len(pre_arrs_vh) == 0):
+        raise ValueError('Both vv and vh pre-image lists must be non-empty!')
+
     # T x 2 x H x C arr
-    pre_arrs = _transform_pre_arrs(pre_arrs_vv, pre_arrs_vh)
-    # 2 x H x C
-    if isinstance(post_arr_vv, list) != isinstance(post_arr_vh, list):
-        raise ValueError('Both post arrays must be both lists or arrays')
-    if isinstance(post_arr_vv, list):
-        if len(post_arr_vh) != len(post_arr_vh):
-            raise ValueError('Both post array lists must be the same size')
-        post_arr = [np.stack([vv, vh], axis=0) for (vv, vh) in zip(post_arr_vv, post_arr_vh)]
-    else:
-        post_arr = np.stack([post_arr_vv, post_arr_vh], axis=0)
+    pre_arrs = _transform_pre_arrs(pre_arrs_vv, pre_arrs_vh, logit_transformed=logit_transformed)
+
+    # 2 x H x C or list of such arrays
+    post_arr = _transform_post_arrs(post_arr_vv, post_arr_vh, logit_transformed=logit_transformed)
+
     mu_st, cov_st, covar_st_inv, dist = _compute_mahalanobis_dist_2d(
         pre_arrs, post_arr, window_size=window_size, eig_lb=eig_lb, unbiased=unbiased
     )
@@ -308,10 +328,13 @@ def compute_mahalonobis_dist_1d(
     window_size: int = 3,
     unbiased: bool = True,
     min_sigma=1e-4,
+    logit_transformed: bool = True
 ) -> MahalanobisDistance1d | list[MahalanobisDistance1d]:
     if len(pre_arrs) == 0:
         return []
     pre_arrs_s = np.stack(pre_arrs, axis=0)
+    if logit_transformed:
+        pre_arrs_s = logit(pre_arrs_s)
     mu = get_spatiotemporal_mu_1d(pre_arrs_s, window_size=window_size)
     sigma = get_spatiotemporal_var_1d(pre_arrs_s, mu=mu, window_size=window_size, unbiased=unbiased)
     sigma = np.sqrt(sigma)
