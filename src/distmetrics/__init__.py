@@ -14,5 +14,5 @@ __all__ = [
     'read_asf_rtc_image_data',
     'compute_log_ratio',
     'load_trained_transformer_model',
-    'get_transformer_zscore'
+    'get_transformer_zscore',
 ]
