@@ -21,3 +21,8 @@ Clone this repository and navigate to it in your terminal. We use the python pac
 4. Install a notebook kernel with `python -m ipykernel install --user --name dist-s1`.
 
 Python 3.10+ is supported.
+
+
+# Usage
+
+See the [`notebooks/`](notebooks/).
