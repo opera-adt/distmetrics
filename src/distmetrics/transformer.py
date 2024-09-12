@@ -271,9 +271,9 @@ def get_transformer_zscore(
     stride=4,
     agg: str | Callable = 'max',
 ) -> DiagMahalanobisDistance2d:
-    """Assumes that VV and VH are independent so returns mean, std for each polarizaiton separately (as learned by model).
-    The mean and std are returned as 2 x H x W matrices. The two zscores are aggregated by the callable agg. Defaults
-    to maximum of both.
+    """Assumes that VV and VH are independent so returns mean, std for each polarizaiton separately (as learned by
+    model). The mean and std are returned as 2 x H x W matrices. The two zscores are aggregated by the callable agg.
+    Agg defaults to maximum z-score of each polarization.
 
     Warning: mean and std are in logits! That is logit(gamma_naught)!
     """
