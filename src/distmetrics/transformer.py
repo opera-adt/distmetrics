@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.mps
 import torch.nn as nn
+from pydantic import BaseModel, model_validator
 from scipy.special import logit
 from tqdm import tqdm
 
@@ -13,6 +14,28 @@ from .mahalanobis import _transform_pre_arrs
 
 WEIGHTS_DIR = Path(__file__).parent.resolve() / 'model_weights'
 TRANSFORMER_WEIGHTS_PATH = WEIGHTS_DIR / 'transformer.pth'
+
+
+class DiagMahalanobisDistance2d(BaseModel):
+    dist: np.ndarray | list
+    mean: np.ndarray
+    std: np.ndarray
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @model_validator(mode='after')
+    def check_shapes(cls, values: dict) -> dict:
+        """Check that our covariance matrix is of the form 2 x 2 x H x W"""
+        d = values.dist
+        mu = values.mean
+        sigma = values.std
+
+        print(d.shape)
+        if mu.shape != sigma.shape:
+            raise ValueError('mean and std must have the same shape')
+        if d.shape != sigma.shape[1:]:
+            raise ValueError('The mean/std must have same spatial dimensions as dist')
 
 
 class SpatioTemporalTransformer(nn.Module):
@@ -235,10 +258,11 @@ def estimate_normal_params_as_logits(
 
     pred_means = pred_means.cpu().numpy().squeeze()
     pred_logvars = pred_logvars.cpu().numpy().squeeze()
-    return pred_means, pred_logvars
+    pred_sigmas = np.sqrt(np.exp(pred_logvars))
+    return pred_means, pred_sigmas
 
 
-def get_1d_transformer_zscore(
+def get_transformer_zscore(
     model,
     pre_imgs_vv: list[np.ndarray],
     pre_imgs_vh: list[np.ndarray],
@@ -246,7 +270,13 @@ def get_1d_transformer_zscore(
     post_arr_vh: np.ndarray,
     stride=4,
     agg: str | Callable = 'max',
-) -> np.ndarray:
+) -> DiagMahalanobisDistance2d:
+    """Assumes that VV and VH are independent so returns mean, std for each polarizaiton separately (as learned by model).
+    The mean and std are returned as 2 x H x W matrices. The two zscores are aggregated by the callable agg. Defaults
+    to maximum of both.
+
+    Warning: mean and std are in logits! That is logit(gamma_naught)!
+    """
     if isinstance(agg, str):
         if agg not in ['max', 'min']:
             raise NotImplementedError('We expect max/min as strings')
@@ -256,8 +286,8 @@ def get_1d_transformer_zscore(
             agg = np.max
 
         post_arr_logit_s = logit(np.stack([post_arr_vv, post_arr_vh], axis=0))
-        mu, log_sigma_sq = estimate_normal_params_as_logits(model, pre_imgs_vv, pre_imgs_vh, stride=stride)
-        sigma = np.sqrt(np.exp(log_sigma_sq))
+        mu, sigma = estimate_normal_params_as_logits(model, pre_imgs_vv, pre_imgs_vh, stride=stride)
         z_score_dual = np.abs(post_arr_logit_s - mu) / sigma
         z_score = agg(z_score_dual, axis=0)
-        return z_score
+        m_dist = DiagMahalanobisDistance2d(dist=z_score, mean=mu, std=sigma)
+        return m_dist
