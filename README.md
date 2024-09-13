@@ -3,25 +3,33 @@
 
 ## Background
 
-This is a python implementation of disturbance metrics for OPERA RTC-S1 data. Right now, it has the Mahalanobis distance for dual polarization imagary. The intention is to use this library to quantify disturbance in the RTC imagery. Specifically, our "metrics" define distances between a set of dual polarizations "pre-images" and a single dual polarization "post-image". Some of the metrics only work on single polarization imagery.
+This is a python implementation of disturbance metrics for OPERA RTC-S1 data. The intention is to use this library to quantify disturbance in the RTC imagery. Specifically, our "metrics" define distances between a set of dual polarizations "pre-images" and a single dual polarization "post-image". Some of the metrics only work on single polarization imagery.
 
 The following metrics have been implemented in this library:
 
-1. Log-ratio (raw) - this is not a non-negative function just a difference of pre and post images in db [[1]](#1).
+1. Log-ratio (raw) - this is not a non-negative function just a difference of pre and post images in db [[1]](#1). Only works on single polarization images.
 2. Mahalanobis 1d and 2d based on empirically estimated statistics in patches around each pixel [[2]](#2), [[3]](#3).
 3. Maholanobis distances for each polarization where mean/std are estimated from a Vision Transformer [[4]](#2) inspired by [[2]](#2).
 
+It is worth noting that other metrics can be generated from the above using `+`, `max`, `min` or linear combinations (with positive scalars).
+
+
 ## Installation for development
 
-Clone this repository and navigate to it in your terminal. We use the python package manager `mamba`.
+Clone this repository and navigate to it in your terminal. We use the python package manager `mamba`. We highly recommend mamba and the package repository `conda-forge` to organize and manage virtual environment required for this library.
 
 1. `mamba env update -f environment.yml`
 2. Activate the environment `conda activate dist-s1`
 3. Install the library with `pip` via `pip install -e .` (`-e` ensures this is editable for development)
 4. Install a notebook kernel with `python -m ipykernel install --user --name dist-s1`.
 
-Python 3.10+ is supported.
+Python 3.10+ is supported. When using the transformer model, if you have `gpu` available, it adviseable to check that the output from the below snippet is indeed `cuda`:
 
+```
+from distmetrics import get_device
+
+get_device() # should be `cuda` if GPU is available or `mps` if using mac M chips
+```
 
 # Usage
 
