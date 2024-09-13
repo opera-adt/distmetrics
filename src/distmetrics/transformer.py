@@ -31,7 +31,6 @@ class DiagMahalanobisDistance2d(BaseModel):
         mu = values.mean
         sigma = values.std
 
-        print(d.shape)
         if mu.shape != sigma.shape:
             raise ValueError('mean and std must have the same shape')
         if d.shape != sigma.shape[1:]:
