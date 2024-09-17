@@ -261,7 +261,7 @@ def estimate_normal_params_as_logits(
     return pred_means, pred_sigmas
 
 
-def get_transformer_zscore(
+def compute_transformer_zscore(
     model,
     pre_imgs_vv: list[np.ndarray],
     pre_imgs_vh: list[np.ndarray],

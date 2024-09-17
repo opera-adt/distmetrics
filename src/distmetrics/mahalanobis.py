@@ -327,7 +327,7 @@ def compute_mahalonobis_dist_1d(
     post_arr: np.ndarray | list[np.ndarray],
     window_size: int = 3,
     unbiased: bool = True,
-    min_sigma=1e-4,
+    sigma_lb=1e-4,
     logit_transformed: bool = False,
 ) -> MahalanobisDistance1d | list[MahalanobisDistance1d]:
     if len(pre_arrs) == 0:
@@ -339,9 +339,9 @@ def compute_mahalonobis_dist_1d(
     sigma = get_spatiotemporal_var_1d(pre_arrs_s, mu=mu, window_size=window_size, unbiased=unbiased)
     sigma = np.sqrt(sigma)
     if isinstance(post_arr, list):
-        dists = [np.abs(arr - mu) / np.maximum(sigma, min_sigma) for arr in post_arr]
+        dists = [np.abs(arr - mu) / np.maximum(sigma, sigma_lb) for arr in post_arr]
         result = MahalanobisDistance1d(dist=dists, mean=mu, std=sigma)
     else:
-        dist = np.abs(post_arr - mu) / np.maximum(sigma, min_sigma)
+        dist = np.abs(post_arr - mu) / np.maximum(sigma, sigma_lb)
         result = MahalanobisDistance1d(dist=dist, mean=mu, std=sigma)
     return result
