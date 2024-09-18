@@ -174,7 +174,7 @@ def load_trained_transformer_model():
         'activation': 'relu',
     }
     transformer = SpatioTemporalTransformer(config).to(device)
-    weights = torch.load(TRANSFORMER_WEIGHTS_PATH, map_location=device)
+    weights = torch.load(TRANSFORMER_WEIGHTS_PATH, map_location=device, weights_only=True)
     transformer.load_state_dict(weights)
     return transformer
 
@@ -386,6 +386,7 @@ def compute_transformer_zscore(
     post_arr_vv: np.ndarray,
     post_arr_vh: np.ndarray,
     stride=4,
+    batch_size=32,
     agg: str | Callable = 'max',
 ) -> DiagMahalanobisDistance2d:
     """Assumes that VV and VH are independent so returns mean, std for each polarizaiton separately (as learned by
@@ -403,7 +404,7 @@ def compute_transformer_zscore(
             agg = np.max
 
         post_arr_logit_s = logit(np.stack([post_arr_vv, post_arr_vh], axis=0))
-        mu, sigma = estimate_normal_params_as_logits(model, pre_imgs_vv, pre_imgs_vh, stride=stride)
+        mu, sigma = estimate_normal_params_as_logits(model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size)
         z_score_dual = np.abs(post_arr_logit_s - mu) / sigma
         z_score = agg(z_score_dual, axis=0)
         m_dist = DiagMahalanobisDistance2d(dist=z_score, mean=mu, std=sigma)
