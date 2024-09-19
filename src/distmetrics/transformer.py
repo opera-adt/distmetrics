@@ -6,7 +6,6 @@ import numpy as np
 import torch
 import torch.mps
 import torch.nn as nn
-import torch.nn.functional as F
 from pydantic import BaseModel, model_validator
 from scipy.special import logit
 from tqdm import tqdm
@@ -374,7 +373,7 @@ def estimate_normal_params_as_logits(
     unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
     with torch.no_grad():
-        for patch_batch, slices in tqdm(unfold_gen, total=n_batches, desc='Chips Traversed'):
+        for patch_batch, slices in tqdm(unfold_gen, total=n_batches, desc='Chips Traversed', mininterval=1):
             chip_mean, chip_logvar = model(patch_batch)
             for k, (sy, sx) in enumerate(slices):
                 chip_mask = mask_spatial[sy, sx]
