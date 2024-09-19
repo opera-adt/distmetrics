@@ -32,6 +32,8 @@ def compute_log_ratio(
     """
     if qual_stat not in ['mean', 'median']:
         ValueError('qualt stat needs to be "mean" or "median"')
+    if len(pre_arrs) == 0:
+      return []
     pre_stack = np.stack(pre_arrs, axis=0)
     if spatial_window_size == 1:
         if qual_stat == 'median':
