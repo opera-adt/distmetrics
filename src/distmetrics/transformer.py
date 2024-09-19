@@ -310,6 +310,7 @@ def estimate_normal_params_as_logits(
     stride=2,
     batch_size=32,
     max_nodata_ratio: float = 0.1,
+    tqdm_enabled: bool = True,
 ) -> tuple[np.ndarray]:
     """
 
@@ -373,7 +374,9 @@ def estimate_normal_params_as_logits(
     unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
     with torch.no_grad():
-        for patch_batch, slices in tqdm(unfold_gen, total=n_batches, desc='Chips Traversed', mininterval=1):
+        for patch_batch, slices in tqdm(
+            unfold_gen, total=n_batches, desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)
+        ):
             chip_mean, chip_logvar = model(patch_batch)
             for k, (sy, sx) in enumerate(slices):
                 chip_mask = mask_spatial[sy, sx]
@@ -402,6 +405,7 @@ def compute_transformer_zscore(
     post_arr_vh: np.ndarray,
     stride=4,
     batch_size=32,
+    tqdm_enabled: bool = True,
     agg: str | Callable = 'max',
 ) -> DiagMahalanobisDistance2d:
     """Assumes that VV and VH are independent so returns mean, std for each polarizaiton separately (as learned by
@@ -420,7 +424,7 @@ def compute_transformer_zscore(
 
         post_arr_logit_s = logit(np.stack([post_arr_vv, post_arr_vh], axis=0))
         mu, sigma = estimate_normal_params_as_logits(
-            model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size
+            model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled
         )
         z_score_dual = np.abs(post_arr_logit_s - mu) / sigma
         z_score = agg(z_score_dual, axis=0)
