@@ -305,8 +305,12 @@ def estimate_normal_params_as_logits_explicit(
 
 
 def estimate_normal_params_as_logits(
-    model, pre_imgs_vv: list[np.ndarray], pre_imgs_vh: list[np.ndarray], stride=2, batch_size=32,
-    max_nodata_ratio: float = .1
+    model,
+    pre_imgs_vv: list[np.ndarray],
+    pre_imgs_vh: list[np.ndarray],
+    stride=2,
+    batch_size=32,
+    max_nodata_ratio: float = 0.1,
 ) -> tuple[np.ndarray]:
     """
 
