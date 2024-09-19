@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Generator
 
 import einops
 import numpy as np
@@ -12,6 +12,44 @@ from scipy.special import logit
 from tqdm import tqdm
 
 from .mahalanobis import _transform_pre_arrs
+
+
+def unfolding_stream(
+    image_st: torch.Tensor, kernel_size: int, stride: int, batch_size: int
+) -> Generator[torch.Tensor, None, None]:
+    T, C, H, W = image_st.shape
+
+    patches = []
+    slices = []
+
+    n_patches_y = int(np.floor((H - kernel_size) / stride) + 1)
+    n_patches_x = int(np.floor((W - kernel_size) / stride) + 1)
+
+    for i in range(0, n_patches_y):
+        for j in range(0, n_patches_x):
+            if i == (n_patches_y - 1):
+                s_y = slice(H - kernel_size, H)
+            else:
+                s_y = slice(i * stride, i * stride + kernel_size)
+
+            if j == (n_patches_x - 1):
+                s_x = slice(W - kernel_size, W)
+            else:
+                s_x = slice(j * stride, j * stride + kernel_size)
+
+            patch = image_st[..., s_y, s_x]
+            patches.append(patch)
+            slices.append((s_y, s_x))
+
+            # Yield patches in batches
+            if len(patches) == batch_size:
+                yield torch.stack(patches, dim=0), slices
+                patches = []
+                slices = []
+
+    if patches:
+        yield torch.stack(patches, dim=0), slices
+
 
 WEIGHTS_DIR = Path(__file__).parent.resolve() / 'model_weights'
 TRANSFORMER_WEIGHTS_PATH = WEIGHTS_DIR / 'transformer.pth'
@@ -180,11 +218,7 @@ def load_trained_transformer_model():
 
 
 def estimate_normal_params_as_logits_explicit(
-    model,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
-    stride=4,
-    max_nodata_ratio: float = .1
+    model, pre_imgs_vv: list[np.ndarray], pre_imgs_vh: list[np.ndarray], stride=4, max_nodata_ratio: float = 0.1
 ) -> tuple[np.ndarray]:
     """
     Assumes images are in gamma naught and despeckled with TV
@@ -271,9 +305,10 @@ def estimate_normal_params_as_logits_explicit(
 
 
 def estimate_normal_params_as_logits(
-    model, pre_imgs_vv: list[np.ndarray], pre_imgs_vh: list[np.ndarray], stride=2, batch_size=32
+    model, pre_imgs_vv: list[np.ndarray], pre_imgs_vh: list[np.ndarray], stride=2, batch_size=32,
+    max_nodata_ratio: float = .1
 ) -> tuple[np.ndarray]:
-    """_summary_
+    """
 
     Parameters
     ----------
@@ -294,7 +329,6 @@ def estimate_normal_params_as_logits(
 
     Notes
     -----
-    - May apply model to chips of slightly smaller size around boundary
     - Applied model to images where mask values are assigned 1e-7
     """
     P = 16
@@ -316,62 +350,40 @@ def estimate_normal_params_as_logits(
     # Logit transformation
     pre_imgs_stack[mask_stack] = 1e-7
     pre_imgs_logit = logit(pre_imgs_stack)
+    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device)
 
-    # H x W
-    H, W = pre_imgs_logit.shape[-2:]
-    T = pre_imgs_logit.shape[0]
-    C = pre_imgs_logit.shape[1]
+    # C x H x W
+    C, H, W = pre_imgs_logit.shape[-3:]
 
     # Sliding window
     n_patches_y = int(np.floor((H - P) / stride) + 1)
     n_patches_x = int(np.floor((W - P) / stride) + 1)
     n_patches = n_patches_y * n_patches_x
 
-    patch_dim = P**2
-
-    # Shape (T x 2 x H x W)
-    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device)
-    # T x (2 * P**2) x n_patches
-    patches = F.unfold(pre_imgs_stack_t, kernel_size=P, stride=stride)
-
-    assert patches.size(-1) == n_patches
-    assert patches.size(-2) == patch_dim * 2
-
-    # n_patches x T x (C * P**2)
-    patches_reshaped = patches.permute(2, 0, 1)
-    # n_patches x T x C x P**2
-    patches_reshaped = patches_reshaped.view(n_patches, T, C, P**2)
-
     n_batches = n_patches // batch_size + 1
 
-    target_chip_shape = (n_patches, C, P, P)
-    pred_means_p = torch.zeros(*target_chip_shape).to(device)
-    pred_logvars_p = torch.zeros(*target_chip_shape).to(device)
+    target_shape = (C, H, W)
+    count = torch.zeros(*target_shape).to(device)
+    pred_means = torch.zeros(*target_shape).to(device)
+    pred_logvars = torch.zeros(*target_shape).to(device)
+
+    unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
     with torch.no_grad():
-        for i in tqdm(range(n_batches), desc='Chips Traversed'):
-            patch_batch = patches_reshaped[batch_size * i: batch_size * (i + 1), ...]
-            patch_batch = patch_batch.view(-1, T, C, P, P)
+        for patch_batch, slices in tqdm(unfold_gen, total=n_batches, desc='Chips Traversed'):
             chip_mean, chip_logvar = model(patch_batch)
-            pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
-            pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
-    input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
-    count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
-    count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
-
-    # n_patches x C x P x P -->  (C * P**2) x n_patches
-    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * P**2).permute(1, 0)
-    pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
-
-    pred_means_p_reshaped = pred_means_p.view(n_patches, C * P**2).permute(1, 0)
-    pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
-
+            for k, (sy, sx) in enumerate(slices):
+                chip_mask = mask_spatial[sy, sx]
+                if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
+                    pred_means[:, sy, sx] += chip_mean[k, ...]
+                    pred_logvars[:, sy, sx] += chip_logvar[k, ...]
+                    count[:, sy, sx] += 1
     pred_means /= count
     pred_logvars /= count
 
-    mask_3d = mask_spatial.unsqueeze(dim=0).expand(pred_means.shape)
-    pred_means[mask_3d] = torch.nan
-    pred_logvars[mask_3d] = torch.nan
+    M_3d = mask_spatial.unsqueeze(dim=0).expand(pred_means.shape)
+    pred_means[M_3d] = torch.nan
+    pred_logvars[M_3d] = torch.nan
 
     pred_means = pred_means.cpu().numpy().squeeze()
     pred_logvars = pred_logvars.cpu().numpy().squeeze()
@@ -404,7 +416,9 @@ def compute_transformer_zscore(
             agg = np.max
 
         post_arr_logit_s = logit(np.stack([post_arr_vv, post_arr_vh], axis=0))
-        mu, sigma = estimate_normal_params_as_logits(model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size)
+        mu, sigma = estimate_normal_params_as_logits(
+            model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size
+        )
         z_score_dual = np.abs(post_arr_logit_s - mu) / sigma
         z_score = agg(z_score_dual, axis=0)
         m_dist = DiagMahalanobisDistance2d(dist=z_score, mean=mu, std=sigma)
