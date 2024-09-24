@@ -14,16 +14,6 @@ class CuSumDist(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    @model_validator(mode='after')
-    def check_shape(cls, values: dict) -> dict:
-        dist = values.dist
-        # Ensure everything has the same shape if it is not specified
-        cusum_prev = values.get('cusum_prev', np.zeros(dist.shape))
-        drift = values.get('drift', np.zeros(dist.shape))
-
-        if any([dist.shape != arr.shape for arr in [cusum_prev, drift]]):
-            raise ValueError('All arrays must have same shape')
-
 
 def compute_cusum_1d(
     pre_arrs: list[np.ndarray], post_arr: np.ndarray, temporal_drift: str = 'mean', transform_data_to: str = None
