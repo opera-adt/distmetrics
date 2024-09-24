@@ -1,7 +1,7 @@
 from typing import Optional
 
 import numpy as np
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 from scipy.special import logit
 from scipy.stats import norm as normal
 
