@@ -33,7 +33,7 @@ def compute_log_ratio_raw(
         Single np.ndarray of the post-scene
     window_size : int, optional
         Can compute statistics in small spatial window, by default 1
-    qual_stat : str, optional
+    qual_stat_for_pre_imgs : str, optional
         Which statistic to aggregate preimages by, needs to be either "mean" or "median", by default 'median'
 
     Returns
@@ -50,6 +50,7 @@ def compute_log_ratio_raw(
         ValueError('qual stat needs to be "mean" or "median"')
     if len(pre_arrs) == 0:
         raise ValueError('No prearrs specified')
+        
     pre_stack = np.stack(pre_arrs, axis=0)
     if window_size == 1:
         if qual_stat_for_pre_imgs == 'median':
