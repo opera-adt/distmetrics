@@ -8,7 +8,7 @@ from scipy.stats import norm as normal
 
 class CuSumDist(BaseModel):
     dist: np.ndarray | list
-    cusum: Optional[np.ndarray]
+    cusum_prev: Optional[np.ndarray]
     drift: Optional[np.ndarray]
 
     class Config:
@@ -81,7 +81,7 @@ def compute_cusum_1d(
     residual_current = post_arr_t - drift
 
     cusum_current = np.abs(residual_current + cusum_prev)
-    dist_ob = CuSumDist(dist=cusum_current, cusum=cusum_prev, drift=drift)
+    dist_ob = CuSumDist(dist=cusum_current, cusum_prev=cusum_prev, drift=drift)
     return dist_ob
 
 
@@ -117,4 +117,4 @@ def compute_prob_cusum_1d(pre_arrs: list[np.ndarray], post_arr: np.ndarray) -> C
     p_cdf = normal(loc=0, scale=1).cdf(np.abs(cusum_residual_normalized))
     prob = 2 * (1 - p_cdf)
 
-    return CuSumDist(dist=(1 - prob))
+    return CuSumDist(dist=(1 - prob), cusum_prev=None, drift=None)
