@@ -7,6 +7,7 @@ extra step for the user.
 
 Provides an interface for the following metrics:
 
-1. logratio (raw) - this is not a non-negative function just a difference of pre and post images in db.
+1. logratio- this is not a non-negative function just a difference of pre and post images in db, but we transform into a metric by only inspecting the *decrease* in a given polarization
 2. Mahalanobis 1d and 2d based on empirically estimated statistics in patches around each pixel.
 3. Maholanobis distances for each polarization where mean/std are estimated from a Vision Transformer.
+4. CuSum (on the actual residuals and on a normalized time-series)
