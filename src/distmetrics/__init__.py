@@ -18,5 +18,5 @@ __all__ = [
     'compute_transformer_zscore',
     'get_device',
     'compute_cusum_1d',
-    'compute_prob_cusum_1d'
+    'compute_prob_cusum_1d',
 ]

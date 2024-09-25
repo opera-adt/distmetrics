@@ -50,7 +50,7 @@ def compute_log_ratio_raw(
         ValueError('qual stat needs to be "mean" or "median"')
     if len(pre_arrs) == 0:
         raise ValueError('No prearrs specified')
-        
+
     pre_stack = np.stack(pre_arrs, axis=0)
     if window_size == 1:
         if qual_stat_for_pre_imgs == 'median':
