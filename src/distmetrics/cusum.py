@@ -117,4 +117,9 @@ def compute_prob_cusum_1d(pre_arrs: list[np.ndarray], post_arr: np.ndarray) -> C
     p_cdf = normal(loc=0, scale=1).cdf(np.abs(cusum_residual_normalized))
     prob = 2 * (1 - p_cdf)
 
+    # Need additional mask accounting as nansum returns 0 if only nans occur
+    # along spatial dimension
+    mask_spatial = np.isnan(post_arr)
+    prob[mask_spatial] = np.nan
+
     return CuSumDist(dist=(1 - prob), cusum_prev=None, drift=None)
