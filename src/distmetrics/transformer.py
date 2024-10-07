@@ -514,7 +514,8 @@ def get_unfolded_view(X: torch.Tensor, kernel_size, stride):
     unfolded_height = X.unfold(-2, kernel_size, stride)
     patches = unfolded_height.unfold(-2, kernel_size, stride)
     # T x C x n_patches_y x n_patches_x x kernel_size x kernel_size
-    return patches
+    # ->  n_patches_y x n_patches_x x T x C x kernel_size x kernel_size
+    return patches.permute(2, 3, 0, 1, 4, 5)
 
 
 def estimate_normal_params_as_logits_folding_alt(
@@ -580,11 +581,9 @@ def estimate_normal_params_as_logits_folding_alt(
 
     # Shape (T x 2 x H x W)
     pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device)
-    # T x (2 * P**2) x n_patches
 
     # Shape: (T x 2 x N_Patches_y x N_patches_x x P x P)
     pre_patches = get_unfolded_view(pre_imgs_stack_t, P, stride)
-    print(pre_patches.shape)
 
     target_unfolded_shape = (n_patches, C, P, P)
     pred_means_p = torch.zeros(*target_unfolded_shape).to(device)
@@ -602,9 +601,7 @@ def estimate_normal_params_as_logits_folding_alt(
                 ts_slice = slice(start, stop)
                 batch_size_current = stop - start
 
-                # Because we select just a singleton of 1 dimension (i.e. "i"), we loose a dimension
-                # We just want the batches to come to the front - probably better way to do this
-                patch_batch = pre_patches[:, :, i, ts_slice, ...].permute(2, 0, 1, 3, 4)
+                patch_batch = pre_patches[i, ts_slice, ...]
                 chip_mean, chip_logvar = model(patch_batch)
 
                 patch_idx = slice(current_patch_start_idx, current_patch_start_idx + batch_size_current)
@@ -671,7 +668,7 @@ def compute_transformer_zscore(
         compute_logits = (
             estimate_normal_params_as_logits_folding
             if memory_strategy == 'high'
-            else estimate_normal_params_as_logits_stream
+            else estimate_normal_params_as_logits_folding_alt
         )
         mu, sigma = compute_logits(
             model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled
