@@ -477,7 +477,7 @@ def estimate_normal_params_as_logits_folding(
 
     model.eval()
     with torch.no_grad():
-        for i in tqdm(range(n_batches), desc='Chips Traversed', disable=(not tqdm_enabled)):
+        for i in tqdm(range(n_batches), desc='Chips Traversed', mininterval=2,disable=(not tqdm_enabled)):
             patch_batch = patches[batch_size * i: batch_size * (i + 1), ...].view(-1, T, C, P, P).to(device)
             chip_mean, chip_logvar = model(patch_batch)
             pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
@@ -594,7 +594,7 @@ def estimate_normal_params_as_logits_folding_alt(
 
     model.eval()
     with torch.no_grad():
-        for i in tqdm(range(n_patches_y), desc='Rows traversed', disable=(not tqdm_enabled)):
+        for i in tqdm(range(n_patches_y), desc='Rows traversed', mininterval=2, disable=(not tqdm_enabled)):
             for j in range(n_batches_x):
                 start = batch_size * j
                 stop = min(n_patches_x, batch_size * (j + 1))
@@ -612,16 +612,17 @@ def estimate_normal_params_as_logits_folding_alt(
     del pre_imgs_stack_t
     torch.cuda.empty_cache()
 
-    input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
+    # Put all reconstruction on the CPU
+    input_ones = torch.ones(1, H, W, dtype=torch.float32).to('cpu')
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
     count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
 
     # n_patches x C x P x P -->  (C * P**2) x n_patches
     pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * P**2).permute(1, 0)
-    pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
+    pred_logvars = F.fold(pred_logvars_p_reshaped.to('cpu'), output_size=(H, W), kernel_size=P, stride=stride)
 
     pred_means_p_reshaped = pred_means_p.view(n_patches, C * P**2).permute(1, 0)
-    pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
+    pred_means = F.fold(pred_means_p_reshaped.to('cpu'), output_size=(H, W), kernel_size=P, stride=stride)
 
     pred_means /= count
     pred_logvars /= count
