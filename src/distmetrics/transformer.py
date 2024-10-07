@@ -479,10 +479,10 @@ def estimate_normal_params_as_logits_folding(
     with torch.no_grad():
         for i in tqdm(range(n_batches), desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)):
             # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
-            patch_batch = patches[batch_size * i: batch_size * (i + 1), ...].view(-1, T, C, P, P)
+            patch_batch = patches[batch_size * i : batch_size * (i + 1), ...].view(-1, T, C, P, P)
             chip_mean, chip_logvar = model(patch_batch)
-            pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
-            pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
+            pred_means_p[batch_size * i : batch_size * (i + 1), ...] += chip_mean
+            pred_logvars_p[batch_size * i : batch_size * (i + 1), ...] += chip_logvar
     del patches
     torch.cuda.empty_cache()
 
