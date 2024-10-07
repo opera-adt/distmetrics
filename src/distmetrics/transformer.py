@@ -399,7 +399,7 @@ def estimate_normal_params_as_logits_stream(
     return pred_means, pred_sigmas
 
 
-def estimate_normal_params_as_logits(
+def estimate_normal_params_as_logits_folding(
     model,
     pre_imgs_vv: list[np.ndarray],
     pre_imgs_vh: list[np.ndarray],
@@ -407,8 +407,7 @@ def estimate_normal_params_as_logits(
     batch_size=32,
     tqdm_enabled: bool = True,
 ) -> tuple[np.ndarray]:
-    """_summary_
-
+    """
     Parameters
     ----------
     model : _type_
@@ -490,6 +489,130 @@ def estimate_normal_params_as_logits(
             chip_mean, chip_logvar = model(patch_batch)
             pred_means_p[batch_size * i : batch_size * (i + 1), ...] += chip_mean
             pred_logvars_p[batch_size * i : batch_size * (i + 1), ...] += chip_logvar
+    input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
+    count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
+    count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
+
+    # n_patches x C x P x P -->  (C * P**2) x n_patches
+    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * P**2).permute(1, 0)
+    pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
+
+    pred_means_p_reshaped = pred_means_p.view(n_patches, C * P**2).permute(1, 0)
+    pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
+
+    pred_means /= count
+    pred_logvars /= count
+
+    mask_3d = mask_spatial.unsqueeze(dim=0).expand(pred_means.shape)
+    pred_means[mask_3d] = torch.nan
+    pred_logvars[mask_3d] = torch.nan
+
+    pred_means = pred_means.cpu().numpy().squeeze()
+    pred_logvars = pred_logvars.cpu().numpy().squeeze()
+    pred_sigmas = np.sqrt(np.exp(pred_logvars))
+    return pred_means, pred_sigmas
+
+
+def get_unfolded_view(X: torch.Tensor, kernel_size, stride):
+    shape_length = len(X.shape)
+    dims = X.shape
+    if shape_length not in [2, 3, 4]:
+        raise NotImplementedError
+
+    unfolded_height = X.unfold(-2, kernel_size, stride)
+    patches = unfolded_height.unfold(-2, kernel_size, stride)
+    return patches
+
+
+def estimate_normal_params_as_logits(
+    model, pre_imgs_vv: list[np.ndarray], pre_imgs_vh: list[np.ndarray], stride=2, batch_size=32
+) -> tuple[np.ndarray]:
+    """
+    Parameters
+    ----------
+    model : _type_
+        transformer with chip (or patch size) 16
+    pre_imgs_vv : list[np.ndarray]
+    pre_imgs_vh : list[np.ndarray]
+        _description_
+    stride : int, optional
+        Should be between 1 and 16, by default 2.
+    stride : int, optional
+        How to batch chips.
+
+    Returns
+    -------
+    tuple[np.ndarray]
+        pred_mean, pred_sigma (as logits)
+
+    Notes
+    -----
+    - May apply model to chips of slightly smaller size around boundary
+    - Applied model to images where mask values are assigned 1e-7
+    """
+    P = 16
+    assert stride <= P
+    assert stride > 0
+
+    device = get_device()
+
+    # stack to T x 2 x H x W
+    pre_imgs_stack = _transform_pre_arrs(pre_imgs_vv, pre_imgs_vh)
+    pre_imgs_stack = pre_imgs_stack.astype('float32')
+
+    # Mask
+    mask_stack = np.isnan(pre_imgs_stack)
+    # Remove T x 2 dims
+    mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1)))
+    assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
+
+    # Logit transformation
+    pre_imgs_stack[mask_stack] = 1e-7
+    pre_imgs_logit = logit(pre_imgs_stack)
+
+    # H x W
+    H, W = pre_imgs_logit.shape[-2:]
+    T = pre_imgs_logit.shape[0]
+    C = pre_imgs_logit.shape[1]
+
+    # Sliding window
+    n_patches_y = int(np.floor((H - P) / stride) + 1)
+    n_patches_x = int(np.floor((W - P) / stride) + 1)
+    n_patches = n_patches_y * n_patches_x
+
+    # Shape (T x 2 x H x W)
+    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device)
+    # T x (2 * P**2) x n_patches
+
+    # Shape: (T x 2 x N_Patches_y x N_patches_x x P x P)
+    pre_patches = get_unfolded_view(pre_imgs_stack_t, P, stride)
+    print(pre_patches.shape)
+
+    target_unfolded_shape = (n_patches, C, P, P)
+    pred_means_p = torch.zeros(*target_unfolded_shape).to(device)
+    pred_logvars_p = torch.zeros(*target_unfolded_shape).to(device)
+
+    n_batches_x = int(np.ceil(n_patches_x / batch_size))
+    current_patch_start_idx = 0
+
+    model.eval()
+    with torch.no_grad():
+        for i in range(n_patches_y):
+            for j in range(n_batches_x):
+                start = batch_size * j
+                stop = min(n_patches_x, batch_size * (j + 1))
+                ts_slice = slice(start, stop)
+                batch_size_current = stop - start
+
+                patch_batch = pre_patches[:, :, i, ts_slice, ...].permute(2, 0, 1, 3, 4)
+                chip_mean, chip_logvar = model(patch_batch)
+
+                patch_idx = slice(current_patch_start_idx, current_patch_start_idx + batch_size_current)
+                pred_means_p[patch_idx, ...] += chip_mean
+                pred_logvars_p[patch_idx, ...] += chip_logvar
+
+                current_patch_start_idx += batch_size_current
+
     input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
     count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
