@@ -495,7 +495,7 @@ def estimate_normal_params_as_logits_folding(
     pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
     del pred_means_p_reshaped
 
-    input_ones = torch.ones(1, H, W, dtype=torch.float32)
+    input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
     count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
     del count_patches
