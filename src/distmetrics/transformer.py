@@ -399,7 +399,7 @@ def estimate_normal_params_as_logits_stream(
     return pred_means, pred_sigmas
 
 
-def estimate_normal_params_as_logits(
+def estimate_normal_params_as_logits_folding(
     model,
     pre_imgs_vv: list[np.ndarray],
     pre_imgs_vh: list[np.ndarray],
@@ -469,11 +469,6 @@ def estimate_normal_params_as_logits(
     # n_patches x T x C x P**2
     patches = patches.view(n_patches, T, C, P**2)
 
-    del pre_imgs_stack_t
-
-    # assert patches.size(-1) == n_patches
-    # assert patches.size(-2) == patch_dim * 2
-
     n_batches = n_patches // batch_size + 1
 
     target_chip_shape = (n_patches, C, P, P)
@@ -489,21 +484,18 @@ def estimate_normal_params_as_logits(
             pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
 
     # n_patches x C x P x P -->  (C * P**2) x n_patches
-    pred_logvars_p_reshaped = pred_logvars_p.to('cpu').view(n_patches, C * P**2).permute(1, 0)
+    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * P**2).permute(1, 0)
     pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
     del pred_logvars_p
-    torch.cuda.empty_cache()
 
-    pred_means_p_reshaped = pred_means_p.to('cpu').view(n_patches, C * P**2).permute(1, 0)
+    pred_means_p_reshaped = pred_means_p.view(n_patches, C * P**2).permute(1, 0)
     pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
     del pred_means_p_reshaped
-    torch.cuda.empty_cache()
 
-    input_ones = torch.ones(1, H, W, dtype=torch.float32) # .to(device)
+    input_ones = torch.ones(1, H, W, dtype=torch.float32)
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
     count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
     del count_patches
-    torch.cuda.empty_cache()
 
     pred_means /= count
     pred_logvars /= count
@@ -525,7 +517,7 @@ def get_unfolded_view(X: torch.Tensor, kernel_size, stride):
     return patches
 
 
-def estimate_normal_params_as_logits_folding(
+def estimate_normal_params_as_logits_folding_alt(
     model,
     pre_imgs_vv: list[np.ndarray],
     pre_imgs_vh: list[np.ndarray],
@@ -657,6 +649,7 @@ def compute_transformer_zscore(
     batch_size=32,
     tqdm_enabled: bool = True,
     agg: str | Callable = 'max',
+    memory_strategy: str = 'high',
 ) -> DiagMahalanobisDistance2d:
     """Assumes that VV and VH are independent so returns mean, std for each polarizaiton separately (as learned by
     model). The mean and std are returned as 2 x H x W matrices. The two zscores are aggregated by the callable agg.
@@ -664,6 +657,8 @@ def compute_transformer_zscore(
 
     Warning: mean and std are in logits! That is logit(gamma_naught)!
     """
+    if memory_strategy not in ['high', 'low']:
+        raise ValueError('memory strategy must be high or low')
     if isinstance(agg, str):
         if agg not in ['max', 'min']:
             raise NotImplementedError('We expect max/min as strings')
@@ -673,7 +668,12 @@ def compute_transformer_zscore(
             agg = np.max
 
         post_arr_logit_s = logit(np.stack([post_arr_vv, post_arr_vh], axis=0))
-        mu, sigma = estimate_normal_params_as_logits(
+        compute_logits = (
+            estimate_normal_params_as_logits_folding
+            if memory_strategy == 'high'
+            else estimate_normal_params_as_logits_stream
+        )
+        mu, sigma = compute_logits(
             model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled
         )
         z_score_dual = np.abs(post_arr_logit_s - mu) / sigma
