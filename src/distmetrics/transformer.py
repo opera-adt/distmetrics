@@ -463,7 +463,7 @@ def estimate_normal_params_as_logits(
     patch_dim = P**2
 
     # Shape (T x 2 x H x W)
-    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device)
+    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit)
     # T x (2 * P**2) x n_patches
     patches = F.unfold(pre_imgs_stack_t, kernel_size=P, stride=stride)
     del pre_imgs_stack_t
@@ -486,29 +486,28 @@ def estimate_normal_params_as_logits(
     model.eval()
     with torch.no_grad():
         for i in tqdm(range(n_batches), desc='Chips Traversed', disable=(not tqdm_enabled)):
-            patch_batch = patches_reshaped[batch_size * i : batch_size * (i + 1), ...]
+            patch_batch = patches_reshaped[batch_size * i : batch_size * (i + 1), ...].to(device)
             patch_batch = patch_batch.view(-1, T, C, P, P)
             chip_mean, chip_logvar = model(patch_batch)
             pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
             pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
 
     # n_patches x C x P x P -->  (C * P**2) x n_patches
-    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * P**2).permute(1, 0)
+    pred_logvars_p_reshaped = pred_logvars_p.to('cpu').view(n_patches, C * P**2).permute(1, 0)
     pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
     del pred_logvars_p
     torch.cuda.empty_cache()
 
-    pred_means_p_reshaped = pred_means_p.view(n_patches, C * P**2).permute(1, 0)
+    pred_means_p_reshaped = pred_means_p.to('cpu').view(n_patches, C * P**2).permute(1, 0)
     pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
     del pred_means_p_reshaped
     torch.cuda.empty_cache()
 
-    input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
+    input_ones = torch.ones(1, H, W, dtype=torch.float32) # .to(device)
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
     count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
     del count_patches
     torch.cuda.empty_cache()
-
 
     pred_means /= count
     pred_logvars /= count
