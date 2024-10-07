@@ -460,8 +460,6 @@ def estimate_normal_params_as_logits(
     n_patches_x = int(np.floor((W - P) / stride) + 1)
     n_patches = n_patches_y * n_patches_x
 
-    patch_dim = P**2
-
     # Shape (T x 2 x H x W)
     pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit)
     # T x (2 * P**2) x n_patches
@@ -485,7 +483,7 @@ def estimate_normal_params_as_logits(
     model.eval()
     with torch.no_grad():
         for i in tqdm(range(n_batches), desc='Chips Traversed', disable=(not tqdm_enabled)):
-            patch_batch = patches[batch_size * i : batch_size * (i + 1), ...].to(device)
+            patch_batch = patches[batch_size * i: batch_size * (i + 1), ...].view(-1, T, C, P, P).to(device)
             chip_mean, chip_logvar = model(patch_batch)
             pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
             pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
@@ -580,7 +578,7 @@ def estimate_normal_params_as_logits_folding(
 
     # H x W
     H, W = pre_imgs_logit.shape[-2:]
-    T = pre_imgs_logit.shape[0]
+    # T = pre_imgs_logit.shape[0]
     C = pre_imgs_logit.shape[1]
 
     # Sliding window
