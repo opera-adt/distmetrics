@@ -487,8 +487,8 @@ def estimate_normal_params_as_logits_folding(
             patch_batch = patches_reshaped[batch_size * i : batch_size * (i + 1), ...]
             patch_batch = patch_batch.view(-1, T, C, P, P)
             chip_mean, chip_logvar = model(patch_batch)
-            pred_means_p[batch_size * i : batch_size * (i + 1), ...] += chip_mean
-            pred_logvars_p[batch_size * i : batch_size * (i + 1), ...] += chip_logvar
+            pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
+            pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
     input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
     count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
@@ -525,7 +525,12 @@ def get_unfolded_view(X: torch.Tensor, kernel_size, stride):
 
 
 def estimate_normal_params_as_logits(
-    model, pre_imgs_vv: list[np.ndarray], pre_imgs_vh: list[np.ndarray], stride=2, batch_size=32
+    model,
+    pre_imgs_vv: list[np.ndarray],
+    pre_imgs_vh: list[np.ndarray],
+    stride=2,
+    batch_size=32,
+    tqdm_enabled: bool = True,
 ) -> tuple[np.ndarray]:
     """
     Parameters
@@ -597,7 +602,7 @@ def estimate_normal_params_as_logits(
 
     model.eval()
     with torch.no_grad():
-        for i in range(n_patches_y):
+        for i in tqdm(range(n_patches_y), desc='Rows traversed', disable=(not tqdm_enabled)):
             for j in range(n_batches_x):
                 start = batch_size * j
                 stop = min(n_patches_x, batch_size * (j + 1))
