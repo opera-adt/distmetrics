@@ -467,7 +467,7 @@ def estimate_normal_params_as_logits(
     # T x (2 * P**2) x n_patches
     patches = F.unfold(pre_imgs_stack_t, kernel_size=P, stride=stride)
     # n_patches x T x (C * P**2)
-    patches = patches.permute(2, 0, 1).to(device)
+    patches = patches.permute(2, 0, 1).to('cpu')
     # n_patches x T x C x P**2
     patches = patches.view(n_patches, T, C, P**2)
 
@@ -485,7 +485,7 @@ def estimate_normal_params_as_logits(
     model.eval()
     with torch.no_grad():
         for i in tqdm(range(n_batches), desc='Chips Traversed', disable=(not tqdm_enabled)):
-            patch_batch = patches[batch_size * i: batch_size * (i + 1), ...]
+            patch_batch = patches[batch_size * i : batch_size * (i + 1), ...].to(device)
             chip_mean, chip_logvar = model(patch_batch)
             pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
             pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
