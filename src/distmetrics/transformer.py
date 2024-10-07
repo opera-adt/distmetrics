@@ -514,11 +514,6 @@ def estimate_normal_params_as_logits_folding(
 
 
 def get_unfolded_view(X: torch.Tensor, kernel_size, stride):
-    shape_length = len(X.shape)
-    dims = X.shape
-    if shape_length not in [2, 3, 4]:
-        raise NotImplementedError
-
     unfolded_height = X.unfold(-2, kernel_size, stride)
     patches = unfolded_height.unfold(-2, kernel_size, stride)
     return patches
@@ -609,6 +604,8 @@ def estimate_normal_params_as_logits(
                 ts_slice = slice(start, stop)
                 batch_size_current = stop - start
 
+                # Because we select just a singleton of 1 dimension (i.e. "i"), we loose a dimension
+                # We just want the batches to come to the front - probably better way to do this
                 patch_batch = pre_patches[:, :, i, ts_slice, ...].permute(2, 0, 1, 3, 4)
                 chip_mean, chip_logvar = model(patch_batch)
 
@@ -617,6 +614,7 @@ def estimate_normal_params_as_logits(
                 pred_logvars_p[patch_idx, ...] += chip_logvar
 
                 current_patch_start_idx += batch_size_current
+    del pre_imgs_stack_t
 
     input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
