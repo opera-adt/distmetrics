@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.mps
 import torch.nn as nn
+import torch.nn.functional as F
 from pydantic import BaseModel, model_validator
 from scipy.special import logit
 from tqdm import tqdm
@@ -303,7 +304,7 @@ def estimate_normal_params_as_logits_explicit(
     return pred_means, pred_sigmas
 
 
-def estimate_normal_params_as_logits(
+def estimate_normal_params_as_logits_stream(
     model,
     pre_imgs_vv: list[np.ndarray],
     pre_imgs_vh: list[np.ndarray],
@@ -373,6 +374,7 @@ def estimate_normal_params_as_logits(
 
     unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
+    model.eval()
     with torch.no_grad():
         for patch_batch, slices in tqdm(
             unfold_gen, total=n_batches, desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)
@@ -390,6 +392,121 @@ def estimate_normal_params_as_logits(
     M_3d = mask_spatial.unsqueeze(dim=0).expand(pred_means.shape)
     pred_means[M_3d] = torch.nan
     pred_logvars[M_3d] = torch.nan
+
+    pred_means = pred_means.cpu().numpy().squeeze()
+    pred_logvars = pred_logvars.cpu().numpy().squeeze()
+    pred_sigmas = np.sqrt(np.exp(pred_logvars))
+    return pred_means, pred_sigmas
+
+
+def estimate_normal_params_as_logits(
+    model,
+    pre_imgs_vv: list[np.ndarray],
+    pre_imgs_vh: list[np.ndarray],
+    stride=2,
+    batch_size=32,
+    tqdm_enabled: bool = True,
+) -> tuple[np.ndarray]:
+    """_summary_
+
+    Parameters
+    ----------
+    model : _type_
+        transformer with chip (or patch size) 16
+    pre_imgs_vv : list[np.ndarray]
+    pre_imgs_vh : list[np.ndarray]
+        _description_
+    stride : int, optional
+        Should be between 1 and 16, by default 2.
+    stride : int, optional
+        How to batch chips.
+
+    Returns
+    -------
+    tuple[np.ndarray]
+        pred_mean, pred_sigma (as logits)
+
+    Notes
+    -----
+    - May apply model to chips of slightly smaller size around boundary
+    - Applied model to images where mask values are assigned 1e-7
+    """
+    P = 16
+    assert stride <= P
+    assert stride > 0
+
+    device = get_device()
+
+    # stack to T x 2 x H x W
+    pre_imgs_stack = _transform_pre_arrs(pre_imgs_vv, pre_imgs_vh)
+    pre_imgs_stack = pre_imgs_stack.astype('float32')
+
+    # Mask
+    mask_stack = np.isnan(pre_imgs_stack)
+    # Remove T x 2 dims
+    mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1)))
+    assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
+
+    # Logit transformation
+    pre_imgs_stack[mask_stack] = 1e-7
+    pre_imgs_logit = logit(pre_imgs_stack)
+
+    # H x W
+    H, W = pre_imgs_logit.shape[-2:]
+    T = pre_imgs_logit.shape[0]
+    C = pre_imgs_logit.shape[1]
+
+    # Sliding window
+    n_patches_y = int(np.floor((H - P) / stride) + 1)
+    n_patches_x = int(np.floor((W - P) / stride) + 1)
+    n_patches = n_patches_y * n_patches_x
+
+    patch_dim = P**2
+
+    # Shape (T x 2 x H x W)
+    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device)
+    # T x (2 * P**2) x n_patches
+    patches = F.unfold(pre_imgs_stack_t, kernel_size=P, stride=stride)
+
+    assert patches.size(-1) == n_patches
+    assert patches.size(-2) == patch_dim * 2
+
+    # n_patches x T x (C * P**2)
+    patches_reshaped = patches.permute(2, 0, 1)
+    # n_patches x T x C x P**2
+    patches_reshaped = patches_reshaped.view(n_patches, T, C, P**2)
+
+    n_batches = n_patches // batch_size + 1
+
+    target_chip_shape = (n_patches, C, P, P)
+    pred_means_p = torch.zeros(*target_chip_shape).to(device)
+    pred_logvars_p = torch.zeros(*target_chip_shape).to(device)
+
+    model.eval()
+    with torch.no_grad():
+        for i in tqdm(range(n_batches), desc='Chips Traversed', disable=(not tqdm_enabled)):
+            patch_batch = patches_reshaped[batch_size * i : batch_size * (i + 1), ...]
+            patch_batch = patch_batch.view(-1, T, C, P, P)
+            chip_mean, chip_logvar = model(patch_batch)
+            pred_means_p[batch_size * i : batch_size * (i + 1), ...] += chip_mean
+            pred_logvars_p[batch_size * i : batch_size * (i + 1), ...] += chip_logvar
+    input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
+    count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
+    count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
+
+    # n_patches x C x P x P -->  (C * P**2) x n_patches
+    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * P**2).permute(1, 0)
+    pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
+
+    pred_means_p_reshaped = pred_means_p.view(n_patches, C * P**2).permute(1, 0)
+    pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
+
+    pred_means /= count
+    pred_logvars /= count
+
+    mask_3d = mask_spatial.unsqueeze(dim=0).expand(pred_means.shape)
+    pred_means[mask_3d] = torch.nan
+    pred_logvars[mask_3d] = torch.nan
 
     pred_means = pred_means.cpu().numpy().squeeze()
     pred_logvars = pred_logvars.cpu().numpy().squeeze()
