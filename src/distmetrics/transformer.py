@@ -466,16 +466,15 @@ def estimate_normal_params_as_logits(
     pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit)
     # T x (2 * P**2) x n_patches
     patches = F.unfold(pre_imgs_stack_t, kernel_size=P, stride=stride)
-    del pre_imgs_stack_t
-    torch.cuda.empty_cache()
-
-    assert patches.size(-1) == n_patches
-    assert patches.size(-2) == patch_dim * 2
-
     # n_patches x T x (C * P**2)
-    patches_reshaped = patches.permute(2, 0, 1)
+    patches = patches.permute(2, 0, 1).to(device)
     # n_patches x T x C x P**2
-    patches_reshaped = patches_reshaped.view(n_patches, T, C, P**2)
+    patches = patches.view(n_patches, T, C, P**2)
+
+    del pre_imgs_stack_t
+
+    # assert patches.size(-1) == n_patches
+    # assert patches.size(-2) == patch_dim * 2
 
     n_batches = n_patches // batch_size + 1
 
@@ -486,8 +485,7 @@ def estimate_normal_params_as_logits(
     model.eval()
     with torch.no_grad():
         for i in tqdm(range(n_batches), desc='Chips Traversed', disable=(not tqdm_enabled)):
-            patch_batch = patches_reshaped[batch_size * i : batch_size * (i + 1), ...].to(device)
-            patch_batch = patch_batch.view(-1, T, C, P, P)
+            patch_batch = patches[batch_size * i: batch_size * (i + 1), ...]
             chip_mean, chip_logvar = model(patch_batch)
             pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
             pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
