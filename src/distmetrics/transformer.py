@@ -465,7 +465,7 @@ def estimate_normal_params_as_logits_folding(
     # T x (2 * P**2) x n_patches
     patches = F.unfold(pre_imgs_stack_t, kernel_size=P, stride=stride)
     # n_patches x T x (C * P**2)
-    patches = patches.permute(2, 0, 1).to('cpu')
+    patches = patches.permute(2, 0, 1).to(device)
     # n_patches x T x C x P**2
     patches = patches.view(n_patches, T, C, P**2)
 
@@ -477,11 +477,14 @@ def estimate_normal_params_as_logits_folding(
 
     model.eval()
     with torch.no_grad():
-        for i in tqdm(range(n_batches), desc='Chips Traversed', mininterval=2,disable=(not tqdm_enabled)):
-            patch_batch = patches[batch_size * i: batch_size * (i + 1), ...].view(-1, T, C, P, P).to(device)
+        for i in tqdm(range(n_batches), desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)):
+            # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
+            patch_batch = patches[batch_size * i: batch_size * (i + 1), ...].view(-1, T, C, P, P)
             chip_mean, chip_logvar = model(patch_batch)
             pred_means_p[batch_size * i: batch_size * (i + 1), ...] += chip_mean
             pred_logvars_p[batch_size * i: batch_size * (i + 1), ...] += chip_logvar
+    del patches
+    torch.cuda.empty_cache()
 
     # n_patches x C x P x P -->  (C * P**2) x n_patches
     pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * P**2).permute(1, 0)
@@ -496,6 +499,7 @@ def estimate_normal_params_as_logits_folding(
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
     count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
     del count_patches
+    torch.cuda.empty_cache()
 
     pred_means /= count
     pred_logvars /= count
