@@ -40,12 +40,12 @@ See the [`notebooks/`](notebooks/).
 
 <a id="1">[1]</a> E. J. M. Rignot and J. J. van Zyl, "Change detection techniques for ERS-1 SAR data," in IEEE Transactions on Geoscience and Remote Sensing, vol. 31, no. 4, pp. 896-906, July 1993, doi: 10.1109/36.239913. https://ieeexplore.ieee.org/document/239913 
 
-<a id=2>[2] O. L. Stephenson et al., "Deep Learning-Based Damage Mapping With InSAR Coherence Time Series," in IEEE Transactions on Geoscience and Remote Sensing, vol. 60, pp. 1-17, 2022, Art no. 5207917, doi: 10.1109/TGRS.2021.3084209. https://arxiv.org/abs/2105.11544 </a>
+<a id=2>[2]</a> O. L. Stephenson et al., "Deep Learning-Based Damage Mapping With InSAR Coherence Time Series," in IEEE Transactions on Geoscience and Remote Sensing, vol. 60, pp. 1-17, 2022, Art no. 5207917, doi: 10.1109/TGRS.2021.3084209. https://arxiv.org/abs/2105.11544 
 
-<a id=3>[3] Deledalle, CA., Denis, L. & Tupin, F. How to Compare Noisy Patches? Patch Similarity Beyond Gaussian Noise. Int J Comput Vis 99, 86–102 (2012). https://doi.org/10.1007/s11263-012-0519-6. https://inria.hal.science/hal-00672357/</a>
+<a id=3>[3]</a> Deledalle, CA., Denis, L. & Tupin, F. How to Compare Noisy Patches? Patch Similarity Beyond Gaussian Noise. Int J Comput Vis 99, 86–102 (2012). https://doi.org/10.1007/s11263-012-0519-6. https://inria.hal.science/hal-00672357/
 
-<a id=4>[4] H. Hardiman Mostow et al., "Deep Self-Supervised Global Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", *in preparation 2024*.</a>
+<a id=4>[4]</a> H. Hardiman Mostow et al., "Deep Self-Supervised Global Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", *in preparation 2024*.
 
-<a id=5>[5] Sarem Seitz, "Probabalistic Cusum for Change Point Detection", Accessed September 2024.</a>
+<a id=5>[5]</a> Sarem Seitz, "Probabalistic Cusum for Change Point Detection", Accessed September 2024.
 
-<a id=6>[6] CUSUM on [Wikipedia](https://en.wikipedia.org/wiki/CUSUM), Accessed September 2024</a>
+<a id=6>[6]</a> CUSUM on [Wikipedia](https://en.wikipedia.org/wiki/CUSUM), Accessed September 2024
