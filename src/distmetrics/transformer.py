@@ -376,17 +376,16 @@ def estimate_normal_params_as_logits_stream(
     unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
     model.eval()
-    with torch.no_grad():
-        for patch_batch, slices in tqdm(
-            unfold_gen, total=n_batches, desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)
-        ):
-            chip_mean, chip_logvar = model(patch_batch)
-            for k, (sy, sx) in enumerate(slices):
-                chip_mask = mask_spatial[sy, sx]
-                if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
-                    pred_means[:, sy, sx] += chip_mean[k, ...]
-                    pred_logvars[:, sy, sx] += chip_logvar[k, ...]
-                    count[:, sy, sx] += 1
+    for patch_batch, slices in tqdm(
+        unfold_gen, total=n_batches, desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)
+    ):
+        chip_mean, chip_logvar = model(patch_batch)
+        for k, (sy, sx) in enumerate(slices):
+            chip_mask = mask_spatial[sy, sx]
+            if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
+                pred_means[:, sy, sx] += chip_mean[k, ...]
+                pred_logvars[:, sy, sx] += chip_logvar[k, ...]
+                count[:, sy, sx] += 1
     pred_means /= count
     pred_logvars /= count
 
