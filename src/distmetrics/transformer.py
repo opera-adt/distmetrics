@@ -217,6 +217,7 @@ def load_trained_transformer_model():
     return transformer
 
 
+@torch.no_grad()
 def estimate_normal_params_as_logits_explicit(
     model, pre_imgs_vv: list[np.ndarray], pre_imgs_vh: list[np.ndarray], stride=4, max_nodata_ratio: float = 0.1
 ) -> tuple[np.ndarray]:
@@ -266,37 +267,36 @@ def estimate_normal_params_as_logits_explicit(
     n_patches_x = int(np.floor((W - P) / stride) + 1)
 
     model.eval()  # account for dropout, etc
-    with torch.no_grad():  # tells torch it doesn't need to keep track of gradients
-        for i in tqdm(range(n_patches_y), desc='Rows Traversed'):
-            for j in range(n_patches_x):
-                if i == (n_patches_y - 1):
-                    sy = slice(H - P, H)
-                else:
-                    sy = slice(i * stride, i * stride + P)
+    for i in tqdm(range(n_patches_y), desc='Rows Traversed'):
+        for j in range(n_patches_x):
+            if i == (n_patches_y - 1):
+                sy = slice(H - P, H)
+            else:
+                sy = slice(i * stride, i * stride + P)
 
-                if j == (n_patches_x - 1):
-                    sx = slice(W - P, W)
-                else:
-                    sx = slice(j * stride, j * stride + P)
+            if j == (n_patches_x - 1):
+                sx = slice(W - P, W)
+            else:
+                sx = slice(j * stride, j * stride + P)
 
-                chip = torch.from_numpy(pre_imgs_logit[:, :, :, sy, sx]).to(device)
-                chip_mask = mask_spatial[sy, sx]
-                # Only apply model if nodata mask is smaller than X%
-                if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
-                    chip_mean, chip_logvar = model(chip)
-                    chip_mean, chip_logvar = chip_mean[0, ...], chip_logvar[0, ...]
-                    pred_means[:, sy, sx] += chip_mean.reshape((2, P, P))
-                    pred_logvars[:, sy, sx] += chip_logvar.reshape((2, P, P))
-                    count[:, sy, sx] += 1
-                else:
-                    continue
+            chip = torch.from_numpy(pre_imgs_logit[:, :, :, sy, sx]).to(device)
+            chip_mask = mask_spatial[sy, sx]
+            # Only apply model if nodata mask is smaller than X%
+            if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
+                chip_mean, chip_logvar = model(chip)
+                chip_mean, chip_logvar = chip_mean[0, ...], chip_logvar[0, ...]
+                pred_means[:, sy, sx] += chip_mean.reshape((2, P, P))
+                pred_logvars[:, sy, sx] += chip_logvar.reshape((2, P, P))
+                count[:, sy, sx] += 1
+            else:
+                continue
 
-        pred_means = (pred_means / count).squeeze()
-        pred_logvars = (pred_logvars / count).squeeze()
+    pred_means = (pred_means / count).squeeze()
+    pred_logvars = (pred_logvars / count).squeeze()
 
-        M_3d = mask_spatial.unsqueeze(dim=0).expand(pred_means.shape)
-        pred_means[M_3d] = torch.nan
-        pred_logvars[M_3d] = torch.nan
+    M_3d = mask_spatial.unsqueeze(dim=0).expand(pred_means.shape)
+    pred_means[M_3d] = torch.nan
+    pred_logvars[M_3d] = torch.nan
 
     pred_means = pred_means.cpu().numpy().squeeze()
     pred_logvars = pred_logvars.cpu().numpy().squeeze()
@@ -304,6 +304,7 @@ def estimate_normal_params_as_logits_explicit(
     return pred_means, pred_sigmas
 
 
+@torch.no_grad()
 def estimate_normal_params_as_logits_stream(
     model,
     pre_imgs_vv: list[np.ndarray],
@@ -399,6 +400,7 @@ def estimate_normal_params_as_logits_stream(
     return pred_means, pred_sigmas
 
 
+@torch.no_grad()
 def estimate_normal_params_as_logits_folding(
     model,
     pre_imgs_vv: list[np.ndarray],
@@ -476,13 +478,12 @@ def estimate_normal_params_as_logits_folding(
     pred_logvars_p = torch.zeros(*target_chip_shape).to(device)
 
     model.eval()
-    with torch.no_grad():
-        for i in tqdm(range(n_batches), desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)):
-            # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
-            patch_batch = patches[batch_size * i : batch_size * (i + 1), ...].view(-1, T, C, P, P)
-            chip_mean, chip_logvar = model(patch_batch)
-            pred_means_p[batch_size * i : batch_size * (i + 1), ...] += chip_mean
-            pred_logvars_p[batch_size * i : batch_size * (i + 1), ...] += chip_logvar
+    for i in tqdm(range(n_batches), desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)):
+        # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
+        patch_batch = patches[batch_size * i : batch_size * (i + 1), ...].view(-1, T, C, P, P)
+        chip_mean, chip_logvar = model(patch_batch)
+        pred_means_p[batch_size * i : batch_size * (i + 1), ...] += chip_mean
+        pred_logvars_p[batch_size * i : batch_size * (i + 1), ...] += chip_logvar
     del patches
     torch.cuda.empty_cache()
 
@@ -522,6 +523,7 @@ def get_unfolded_view(X: torch.Tensor, kernel_size, stride):
     return patches.permute(2, 3, 0, 1, 4, 5)
 
 
+@torch.no_grad()
 def estimate_normal_params_as_logits_folding_alt(
     model,
     pre_imgs_vv: list[np.ndarray],
@@ -597,22 +599,21 @@ def estimate_normal_params_as_logits_folding_alt(
     current_patch_start_idx = 0
 
     model.eval()
-    with torch.no_grad():
-        for i in tqdm(range(n_patches_y), desc='Rows traversed', mininterval=2, disable=(not tqdm_enabled)):
-            for j in range(n_batches_x):
-                start = batch_size * j
-                stop = min(n_patches_x, batch_size * (j + 1))
-                ts_slice = slice(start, stop)
-                batch_size_current = stop - start
+    for i in tqdm(range(n_patches_y), desc='Rows traversed', mininterval=2, disable=(not tqdm_enabled)):
+        for j in range(n_batches_x):
+            start = batch_size * j
+            stop = min(n_patches_x, batch_size * (j + 1))
+            ts_slice = slice(start, stop)
+            batch_size_current = stop - start
 
-                patch_batch = pre_patches[i, ts_slice, ...]
-                chip_mean, chip_logvar = model(patch_batch)
+            patch_batch = pre_patches[i, ts_slice, ...]
+            chip_mean, chip_logvar = model(patch_batch)
 
-                patch_idx = slice(current_patch_start_idx, current_patch_start_idx + batch_size_current)
-                pred_means_p[patch_idx, ...] += chip_mean
-                pred_logvars_p[patch_idx, ...] += chip_logvar
+            patch_idx = slice(current_patch_start_idx, current_patch_start_idx + batch_size_current)
+            pred_means_p[patch_idx, ...] += chip_mean
+            pred_logvars_p[patch_idx, ...] += chip_logvar
 
-                current_patch_start_idx += batch_size_current
+            current_patch_start_idx += batch_size_current
     del pre_imgs_stack_t
     torch.cuda.empty_cache()
 
