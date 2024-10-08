@@ -46,6 +46,6 @@ See the [`notebooks/`](notebooks/).
 
 <a id=4>[4]</a> H. Hardiman Mostow et al., "Deep Self-Supervised Global Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", *in preparation 2024*.
 
-<a id=5>[5]</a> Sarem Seitz, "Probabalistic Cusum for Change Point Detection", Accessed September 2024.
+<a id=5>[5]</a> Sarem Seitz, "Probabalistic Cusum for Change Point Detection", https://web.archive.org/web/20240817203837/https://sarem-seitz.com/posts/probabilistic-cusum-for-change-point-detection/, Accessed September 2024.
 
 <a id=6>[6]</a> CUSUM on [Wikipedia](https://en.wikipedia.org/wiki/CUSUM), Accessed September 2024
