@@ -78,7 +78,7 @@ class DiagMahalanobisDistance2d(BaseModel):
 
 class SpatioTemporalTransformer(nn.Module):
     def __init__(self, model_config):
-        super(SpatioTemporalTransformer, self).__init__()
+        super().__init__()
 
         self.d_model = model_config['d_model']
         self.nhead = model_config['nhead']
