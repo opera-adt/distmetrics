@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 from pydantic import BaseModel
 from scipy.special import logit
@@ -8,8 +6,8 @@ from scipy.stats import norm as normal
 
 class CuSumDist(BaseModel):
     dist: np.ndarray | list
-    cusum_prev: Optional[np.ndarray]
-    drift: Optional[np.ndarray]
+    cusum_prev: np.ndarray | None
+    drift: np.ndarray | None
 
     class Config:
         arbitrary_types_allowed = True

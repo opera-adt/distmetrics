@@ -1,5 +1,5 @@
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Callable, Generator
 
 import einops
 import numpy as np
