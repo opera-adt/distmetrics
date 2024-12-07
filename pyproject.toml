@@ -32,6 +32,16 @@ dependencies = [
         'scipy',
         'pydantic',
         'astropy',
+        'pytorch',
+        'einops',
+        'backoff',
+        'asf_search',
+        'shapely',
+        'geopandas',
+        'tqdm',
+        'dill',
+        'mpire',
+        'pandas',
 ]
 
 [project.optional-dependencies]
@@ -46,8 +56,8 @@ develop = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/OPERA-Cal-Val/dist-s1"
-"Bug Tracker" = "https://github.com/OPERA-Cal-Val/dist-s1/issues"
+Homepage = "https://github.com/opera-adt/distmetrics"
+"Bug Tracker" = "https://github.com/opera-adt/distmetrics/issues"
 
 [tool.setuptools]
 include-package-data = true
@@ -64,14 +74,39 @@ readme = { file = ['README.md'], content-type = 'text/markdown' }
 
 [tool.ruff]
 line-length = 120
-exclude = ['notebooks/*']
+src = ["src", "tests"]
+exclude = [
+    ".eggs",
+    ".git",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "site-packages",
+    "notebooks/"
+]
+indent-width = 4
 
 [tool.ruff.format]
 quote-style = "single"
 
+[tool.ruff.lint]
+extend-select = [
+    "I",   # isort: https://docs.astral.sh/ruff/rules/#isort-i
+    "UP",  # pyupgrade: https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    # "D",   # pydocstyle: https://docs.astral.sh/ruff/rules/#pydocstyle-d
+    # "ANN", # annotations: https://docs.astral.sh/ruff/rules/#flake8-annotations-ann
+    "PTH", # use-pathlib-pth: https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth
+]
 
-[tool.pytest.ini_options]
-markers = [
-    "Integration: marks tests as (slow) integration and requiring internet (deselect with '-m \"not integration\"')"]
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
-testpaths = ["tests"]
+[tool.ruff.lint.isort]
+case-sensitive = true
+lines-after-imports = 2

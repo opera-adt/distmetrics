@@ -1,4 +1,4 @@
-name: Tag Version on Main
+name: Bump and Tag Release Version on Main
 
 on:
   push:

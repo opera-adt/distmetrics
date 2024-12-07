@@ -1,5 +1,15 @@
 # distmetrics 
 
+This is a python library for calculating a variety of generic disturbance metrics from input OPERA RTC-S1 time-series including a transformer-based metric proposed in [[1]](#1).
+Generic land disturbances refer to any land disturbances observable with OPERA RTC-S1 including land-use changes, natural disasters, deforestation, etc.
+A disturbance metric is a per-pixel function that quantifies via a radiometric or statistical measures such generic land disturbances between a set of baseline images (pre-images) and a new acquisition (post-image).
+This library is specific to the dual-polarization VV $+$ VH OPERA RTC-S1 data and will likely need to be modified for other SAR data.
+
+# Usage
+
+See the [`notebooks/`](notebooks/). 
+These notebooks show how to download the necessary, publicly available time series and calculate these disturbance metrics.
+
 
 ## Background
 
@@ -7,20 +17,24 @@ This is a python implementation of disturbance metrics for OPERA RTC-S1 data. Th
 
 The following metrics have been implemented in this library:
 
-1. Log-ratio (raw) - this is not a non-negative function just a difference of pre and post images in db [[1]](#1). Only works on single polarization images.
-2. Mahalanobis 1d and 2d based on empirically estimated statistics in patches around each pixel [[2]](#2), [[3]](#3).
-3. Maholanobis distances for each polarization where mean/std are estimated from a Vision Transformer [[4]](#4) inspired by [[2]](#2).
-4. Cumulative Sums for a given polarization from [[5]](#5) and [[6]](#6).
+1. Transformer metric - mean and std estimated from a Vision Transformer [[1]](#1) inspired by [[2]](#2).
+2. Mahalanobis 1d and 2d  - based on mean and std from sample statistics in patches around each pixel [[3]](#3), [[4]](#4).
+3. Log-ratio - this is not a non-negative function just a difference of pre and post images in dB [[2]](#1). Only works on single polarization images.
+4. CuSum metric - computed for a given polarization from [[5]](#5) and [[6]](#6).
 
 It is worth noting that other metrics can be generated from the above using `+`, `max`, `min` or linear combinations (with positive scalars). As such, when the distmetric has some auxiliary meaning (e.g. as a probability), such combinations are easier as they are more meaningfully comparable.
 
+## Installation
 
-## Installation for development
+...
+
+
+### For development
 
 Clone this repository and navigate to it in your terminal. We use the python package manager `mamba`. We highly recommend mamba and the package repository `conda-forge` to organize and manage virtual environment required for this library.
 
 1. `mamba env update -f environment.yml`
-2. Activate the environment `conda activate dist-s1`
+2. Activate the environment `conda activate distmetrics`
 3. Install the library with `pip` via `pip install -e .` (`-e` ensures this is editable for development)
 4. Install a notebook kernel with `python -m ipykernel install --user --name dist-s1`.
 
@@ -32,19 +46,15 @@ from distmetrics import get_device
 get_device() # should be `cuda` if GPU is available or `mps` if using mac M chips
 ```
 
-# Usage
-
-See the [`notebooks/`](notebooks/).
-
 # References
 
-<a id="1">[1]</a> E. J. M. Rignot and J. J. van Zyl, "Change detection techniques for ERS-1 SAR data," in IEEE Transactions on Geoscience and Remote Sensing, vol. 31, no. 4, pp. 896-906, July 1993, doi: 10.1109/36.239913. https://ieeexplore.ieee.org/document/239913 
+<a id=1>[1]</a> H. Hardiman Mostow et al., "Deep Self-Supervised Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", *in preparation 2024*.
 
 <a id=2>[2]</a> O. L. Stephenson et al., "Deep Learning-Based Damage Mapping With InSAR Coherence Time Series," in IEEE Transactions on Geoscience and Remote Sensing, vol. 60, pp. 1-17, 2022, Art no. 5207917, doi: 10.1109/TGRS.2021.3084209. https://arxiv.org/abs/2105.11544 
 
-<a id=3>[3]</a> Deledalle, CA., Denis, L. & Tupin, F. How to Compare Noisy Patches? Patch Similarity Beyond Gaussian Noise. Int J Comput Vis 99, 86–102 (2012). https://doi.org/10.1007/s11263-012-0519-6. https://inria.hal.science/hal-00672357/
+<a id="3">[3]</a> E. J. M. Rignot and J. J. van Zyl, "Change detection techniques for ERS-1 SAR data," in IEEE Transactions on Geoscience and Remote Sensing, vol. 31, no. 4, pp. 896-906, July 1993, doi: 10.1109/36.239913. https://ieeexplore.ieee.org/document/239913 
 
-<a id=4>[4]</a> H. Hardiman Mostow et al., "Deep Self-Supervised Global Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", *in preparation 2024*.
+<a id=4>[4]</a> Deledalle, CA., Denis, L. & Tupin, F. How to Compare Noisy Patches? Patch Similarity Beyond Gaussian Noise. Int J Comput Vis 99, 86–102 (2012). https://doi.org/10.1007/s11263-012-0519-6. https://inria.hal.science/hal-00672357/
 
 <a id=5>[5]</a> Sarem Seitz, "Probabalistic Cusum for Change Point Detection", https://web.archive.org/web/20240817203837/https://sarem-seitz.com/posts/probabilistic-cusum-for-change-point-detection/, Accessed September 2024.
 

@@ -9,6 +9,7 @@ from distmetrics.mahalanobis import (
     get_spatiotemporal_var,
 )
 
+
 np.random.seed(42)
 
 
