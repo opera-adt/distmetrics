@@ -1,7 +1,6 @@
 name: distmetrics
 dependencies:
  - python>=3.10
- - pip
  - asf_search
  - astropy
  - astropy
@@ -33,3 +32,4 @@ dependencies:
  - setuptools_scm
  - shapely
  - tqdm
+ - pip
