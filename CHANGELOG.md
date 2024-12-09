@@ -1,4 +1,23 @@
-# 0.0.1
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
+and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.0.2]
+
+### Fixed
+
+* Fixes Changelog format to ensure proper automated release
+* Fixes secrets in workflows for proper automated release
+
+
+## [0.0.1]
+
+This was an initial release of the library.
+
 This is a python library for calculating a variety of generic disturbance metrics from input OPERA RTC-S1 time-series including a transformer-based metric from Hardiman-Mostow et al., 2024.
 Generic land disturbances refer to any land disturbances observable with OPERA RTC-S1 including land-use changes, natural disasters, deforestation, etc.
 A disturbance metric is a per-pixel function that quantifies via a radiometric or statistical measures such generic land disturbances between a set of baseline images (pre-images) and a new acquisition (post-image).
