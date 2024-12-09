@@ -27,7 +27,7 @@ The following metrics have been implemented in this library:
 1. Transformer metric - mean and std estimated from a Vision Transformer [[1]](#1) inspired by [[2]](#2).
 2. Mahalanobis 1d and 2d  - based on mean and std from sample statistics in patches around each pixel [[3]](#3), [[4]](#4).
 3. Log-ratio - this is not a non-negative function just a difference of pre and post images in dB [[2]](#1). Only works on single polarization images.
-4. CuSum metric - computed for a given polarization from [[5]](#5) and [[6]](#6).
+4. CuSum metric - both absolute residuals and normalized residuals are computed in a per-pixel fashion. See [[5]](#5) and [[6]](#6).
 
 It is worth noting that other metrics can be generated from the above using `+`, `max`, `min` or linear combinations (with positive scalars). As such, when the distmetric has some auxiliary meaning (e.g. as a probability), such combinations are easier as they are more meaningfully comparable.
 
@@ -65,4 +65,4 @@ get_device() # should be `cuda` if GPU is available or `mps` if using mac M chip
 
 <a id=5>[5]</a> Sarem Seitz, "Probabalistic Cusum for Change Point Detection", https://web.archive.org/web/20240817203837/https://sarem-seitz.com/posts/probabilistic-cusum-for-change-point-detection/, Accessed September 2024.
 
-<a id=6>[6]</a> CUSUM on [Wikipedia](https://en.wikipedia.org/wiki/CUSUM), Accessed September 2024
+<a id=6>[6]</a> Tartakovsky, Alexander, Igor Nikiforov, and Michele Basseville. Sequential analysis: Hypothesis testing and changepoint detection. CRC press, 2014.
