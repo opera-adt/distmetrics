@@ -1,9 +1,16 @@
 # distmetrics 
 
-This is a python library for calculating a variety of generic disturbance metrics from input OPERA RTC-S1 time-series including a transformer-based metric proposed in [[1]](#1).
+[![PyPI license](https://img.shields.io/pypi/l/distmetrics.svg)](https://pypi.python.org/pypi/distmetrics/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/distmetrics.svg)](https://pypi.python.org/pypi/distmetrics/)
+[![PyPI version](https://img.shields.io/pypi/v/distmetrics.svg)](https://pypi.python.org/pypi/distmetrics/)
+[![Conda version](https://img.shields.io/conda/vn/conda-forge/distmetrics)](https://anaconda.org/conda-forge/distmetrics)
+[![Conda platforms](https://img.shields.io/conda/pn/conda-forge/distmetrics)](https://anaconda.org/conda-forge/distmetrics)
+
+This is a python library for calculating a variety of generic disturbance metrics from input OPERA RTC-S1 time-series including a transformer-based metric proposed in Hardiman-Mostow et al., 2024 [[1]](#1).
 Generic land disturbances refer to any land disturbances observable with OPERA RTC-S1 including land-use changes, natural disasters, deforestation, etc.
 A disturbance metric is a per-pixel function that quantifies via a radiometric or statistical measures such generic land disturbances between a set of baseline images (pre-images) and a new acquisition (post-image).
 This library is specific to the dual-polarization VV $+$ VH OPERA RTC-S1 data and will likely need to be modified for other SAR data.
+The user is expected to provide/curate the co-registered pre-imagery and the post-image for the computation of the distmetric.
 
 # Usage
 
