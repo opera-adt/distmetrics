@@ -3,7 +3,7 @@ This is a python library for calculating a variety of generic disturbance metric
 Generic land disturbances refer to any land disturbances observable with OPERA RTC-S1 including land-use changes, natural disasters, deforestation, etc.
 A disturbance metric is a per-pixel function that quantifies via a radiometric or statistical measures such generic land disturbances between a set of baseline images (pre-images) and a new acquisition (post-image).
 This library is specific to the dual-polarization OPERA RTC-S1 data and will likely need to be modified for other SAR data.
-The user is expected to curate the co-registered baseline imagery (pre-images) and the recent acquisition (post-image) for the computation of the distmerics.
+The user is expected to provide/curate the co-registered baseline imagery (pre-images) and the recent acquisition (post-image) for the computation of the distmetrics.
 
 Provides an interface for the following metrics:
 
