@@ -14,6 +14,19 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixes secrets in workflows for proper automated release
 
 
+## [0.0.3] - 2025-01-16
+
+### Added
+
+* Consistent linting of DIST-S1 repositories
+* Expose estimation of the normal parameters of the logit images with high/low memory usage.
+* Added transformer test based on usage of different strategies of computation.
+
+## [0.0.2]
+
+* Fixes Changelog format to ensure proper automated release
+* Fixes secrets in workflows for proper automated release
+
 ## [0.0.1]
 
 This was an initial release of the library.

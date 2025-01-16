@@ -33,7 +33,7 @@ class MahalanobisDistance2d(BaseModel):
 
     @model_validator(mode='after')
     def check_covariance_shape(cls, values: dict) -> dict:
-        """Check that our covariance matrix is of the form 2 x 2 x H x W"""
+        """Check that our covariance matrix is of the form 2 x 2 x H x W."""
         cov = values.cov
         cov_inv = values.cov_inv
         dist = values.dist if not isinstance(values.dist, list) else values.dist[0]
@@ -50,7 +50,7 @@ class MahalanobisDistance2d(BaseModel):
         return values
 
 
-def get_spatiotemporal_mu_1d(arrs: np.ndarray, window_size=3) -> np.ndarray:
+def get_spatiotemporal_mu_1d(arrs: np.ndarray, window_size: int = 3) -> np.ndarray:
     k_shape = (1, window_size, window_size)
     kernel = np.ones(k_shape, dtype=np.float32) / np.prod(k_shape)
 
@@ -60,7 +60,7 @@ def get_spatiotemporal_mu_1d(arrs: np.ndarray, window_size=3) -> np.ndarray:
 
 
 def get_spatiotemporal_var_1d(
-    arrs: np.ndarray, mu: np.ndarray = None, window_size=3, unbiased: bool = True
+    arrs: np.ndarray, mu: np.ndarray = None, window_size: int = 3, unbiased: bool = True
 ) -> np.ndarray:
     T = arrs.shape[0]
     if mu is None:
@@ -79,7 +79,7 @@ def get_spatiotemporal_var_1d(
     return var_st
 
 
-def get_spatiotemporal_mu(arr_st: np.ndarray, window_size=3) -> np.ndarray:
+def get_spatiotemporal_mu(arr_st: np.ndarray, window_size: int = 3) -> np.ndarray:
     if len(arr_st.shape) != 4:
         raise ValueError('We are expecting array of shape T x 2 x H x W')
     _, C, H, W = arr_st.shape
@@ -90,10 +90,12 @@ def get_spatiotemporal_mu(arr_st: np.ndarray, window_size=3) -> np.ndarray:
     return mu_st
 
 
-def get_spatiotemporal_var(arr_st: np.ndarray, mu_st=None, window_size=3, unbiased: bool = False) -> np.ndarray:
+def get_spatiotemporal_var(
+    arr_st: np.ndarray, mu_st: np.ndarray = None, window_size: int = 3, unbiased: bool = False
+) -> np.ndarray:
     if len(arr_st.shape) != 4:
         raise ValueError('We are expecting array of shape T x 2 x H x W')
-    T, C, H, W = arr_st.shape
+    _, C, H, W = arr_st.shape
     if mu_st is None:
         mu_st = get_spatiotemporal_mu(arr_st, window_size=window_size)
     else:
@@ -113,7 +115,7 @@ def get_spatiotemporal_var(arr_st: np.ndarray, mu_st=None, window_size=3, unbias
 
 
 def get_spatiotemporal_cor(
-    arrs: np.ndarray, mu_st: np.ndarray = None, window_size: int = 3, unbiased: bool = False
+    arrs: np.ndarray, mu_st: np.ndarray | None = None, window_size: int = 3, unbiased: bool = False
 ) -> np.ndarray:
     T, C, _, _ = arrs.shape
     if C != 2:
@@ -144,7 +146,9 @@ def get_spatiotemporal_cor(
     return corr_st
 
 
-def get_spatiotemporal_covar(arrs: np.ndarray, mu_st=None, window_size=3, unbiased=True) -> np.ndarray:
+def get_spatiotemporal_covar(
+    arrs: np.ndarray, mu_st: np.ndarray = None, window_size: int = 3, unbiased: bool = True
+) -> np.ndarray:
     if mu_st is None:
         mu_st = get_spatiotemporal_mu(arrs, window_size=window_size)
 
@@ -167,9 +171,12 @@ def get_spatiotemporal_covar(arrs: np.ndarray, mu_st=None, window_size=3, unbias
     return cov_st
 
 
-def eigh2d(cov_mat: np.ndarray) -> np.ndarray:
+def eigh2d(cov_mat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    References:
+    Compute the eigenvalues and eigenvectors of a 2 x 2 x H x W covariance matrices.
+
+    References
+    ----------
     https://math.stackexchange.com/questions/395698/fast-way-to-calculate-eigen-of-2x2-matrix-using-a-formula
     https://people.math.harvard.edu/~knill/teaching/math21b2004/exhibits/2dmatrices/index.html
     https://math.stackexchange.com/questions/807166/eigenvalues-in-terms-of-trace-and-determinant-for-matrices-larger-than-2-x-2
@@ -227,7 +234,7 @@ def eigh2d(cov_mat: np.ndarray) -> np.ndarray:
 def _compute_mahalanobis_dist_2d(
     pre_arrs: np.ndarray,
     post_arr: np.ndarray | list,
-    window_size=5,
+    window_size: int = 5,
     eig_lb: float = 1e-7 * np.sqrt(2),
     unbiased: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | list]:
@@ -327,7 +334,7 @@ def compute_mahalonobis_dist_1d(
     post_arr: np.ndarray | list[np.ndarray],
     window_size: int = 3,
     unbiased: bool = True,
-    sigma_lb=1e-4,
+    sigma_lb: float = 1e-4,
     logit_transformed: bool = False,
 ) -> MahalanobisDistance1d | list[MahalanobisDistance1d]:
     if len(pre_arrs) == 0:

@@ -13,7 +13,7 @@ from distmetrics.mahalanobis import (
 np.random.seed(42)
 
 
-def test_eigh():
+def test_eigh() -> None:
     """The inputs of our eigh2d function are 2 x 2 x H X W where we want to perform eigh on all of the H X W entries.
 
     Generates random symmetric matrices perturbed from 2 x 2 matrix of all ones to ensure rank 2 and still symmetric.
@@ -67,10 +67,13 @@ def test_eigh():
                 np.testing.assert_almost_equal(right, left, decimal=5)
 
 
-def test_spatiotemporal_mean():
-    """We are taking the spatiatemporal mean within a small 3 x 3 patch and throughout the time.
+def test_spatiotemporal_mean() -> None:
+    """Verify the correctness of the spatiotemporal mean.
+
+    We are taking the spatiatemporal mean within a small 3 x 3 patch and throughout the time.
     Our sample data has spatial size 3 x 3 so if we consider the center pixel (i.e. index 1, 1),
-    then we can use the normal np.mean"""
+    then we can use the normal np.mean
+    """
     T, C, H, W = 10, 2, 3, 3
     N_samples = 10
     for n in range(N_samples):
@@ -81,10 +84,13 @@ def test_spatiotemporal_mean():
         np.testing.assert_almost_equal(mean_st, mean_ex, 7)
 
 
-def test_spatiotemporal_var():
-    """We are taking the spatiatemporal variance within a small 3 x 3 patch and throughout the time.
+def test_spatiotemporal_var() -> None:
+    """Verify the correctness of the spatiotemporal variance.
+
+    We are taking the spatiatemporal variance within a small 3 x 3 patch and throughout the time.
     Our sample data has spatial size 3 x 3 so if we consider the center pixel (i.e. index 1, 1), then
-    we can use the normal np.var"""
+    we can use the normal np.var
+    """
     T, C, H, W = 10, 2, 3, 3
     N = T * H * W
     N_samples = 10
@@ -97,7 +103,7 @@ def test_spatiotemporal_var():
         np.testing.assert_almost_equal(var_st_unbiased, var_np * N / (N - 1), 7)
 
 
-def test_covariance_generation():
+def test_covariance_generation() -> None:
     T, C, H, W = 10, 2, 3, 3
     N_samples = 10
     for n in range(N_samples):
@@ -110,7 +116,7 @@ def test_covariance_generation():
             np.testing.assert_almost_equal(cov_np, cov_test)
 
 
-def test_mahalanobis_dist_2d():
+def test_mahalanobis_dist_2d() -> None:
     T_pre, C, H, W = 10, 2, 3, 3
     N_samples = 10
     for n in range(N_samples):
@@ -158,7 +164,7 @@ def test_mahalanobis_dist_2d():
             np.testing.assert_almost_equal(dist_form_2, dist_ob.dist[..., 1, 1], decimal=5)
 
 
-def test_mahalanobis_dist_1d():
+def test_mahalanobis_dist_1d() -> None:
     T_pre, H, W = 10, 3, 3
     N_samples = 10
     for n in range(N_samples):

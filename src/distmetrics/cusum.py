@@ -15,8 +15,8 @@ class CuSumDist(BaseModel):
 
 def compute_cusum_1d(
     pre_arrs: list[np.ndarray], post_arr: np.ndarray, temporal_drift: str = 'mean', transform_data_to: str = None
-):
-    """Simple implementation of cumusm.
+) -> CuSumDist:
+    """Compute cusum distmetric using pre-image and post-images using single polarization imagery.
 
     Source:
     [1] https://en.wikipedia.org/wiki/CUSUM
@@ -84,9 +84,12 @@ def compute_cusum_1d(
 
 
 def compute_prob_cusum_1d(pre_arrs: list[np.ndarray], post_arr: np.ndarray) -> CuSumDist:
-    """This adapted from this blog post:
+    """Compute the probability of change using the cusum distmetric.
 
-    [1] https://web.archive.org/web/20240817203837/https://sarem-seitz.com/posts/probabilistic-cusum-for-change-point-detection/  # noqa: E501
+    This adapted from this blog post (references a time-series Change Detection textbook):
+
+    [1] https://web.archive.org/web/20240817203837/https://sarem-seitz.com/
+    posts/probabilistic-cusum-for-change-point-detection/  # noqa: E501
 
     The final distance is (1 - prob), where "prob" is the probability of the magnitude of the cusum of the
     residuals of the normalized time-series at the current time step (i.e. represented in post_arr)
