@@ -12,7 +12,12 @@ from scipy.special import logit
 from tqdm import tqdm
 
 from distmetrics.mahalanobis import _transform_pre_arrs
-from distmetrics.model_weights.transformer_config import transformer_latest_config
+from distmetrics.model_data.transformer_config import transformer_config, transformer_latest_config
+
+
+MODEL_DATA = Path(__file__).parent.resolve() / 'model_data'
+TRANSFORMER_WEIGHTS_PATH_LATEST = MODEL_DATA / 'transformer_latest.pth'
+TRANSFORMER_WEIGHTS_PATH_ORIGINAL = MODEL_DATA / 'transformer.pth'
 
 
 def unfolding_stream(
@@ -50,10 +55,6 @@ def unfolding_stream(
 
     if patches:
         yield torch.stack(patches, dim=0), slices
-
-
-MODEL_DATA = Path(__file__).parent.resolve() / 'model_data'
-TRANSFORMER_WEIGHTS_PATH = MODEL_DATA / 'transformer.pth'
 
 
 class DiagMahalanobisDistance2d(BaseModel):
@@ -193,11 +194,18 @@ def get_device() -> str:
     return device
 
 
-def load_trained_transformer_model() -> SpatioTemporalTransformer:
+def load_trained_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransformer:
+    if model_token not in ['latest', 'original']:
+        raise ValueError('model_token must be latest or original')
+    if model_token == 'latest':
+        config = transformer_latest_config
+        weights_path = TRANSFORMER_WEIGHTS_PATH_LATEST
+    else:
+        config = transformer_config
+        weights_path = TRANSFORMER_WEIGHTS_PATH_ORIGINAL
     device = get_device()
-    config = transformer_latest_config
+    weights = torch.load(weights_path, map_location=device, weights_only=True)
     transformer = SpatioTemporalTransformer(config).to(device)
-    weights = torch.load(TRANSFORMER_WEIGHTS_PATH, map_location=device, weights_only=True)
     transformer.load_state_dict(weights)
     transformer = transformer.eval()
     if device == 'cuda':
