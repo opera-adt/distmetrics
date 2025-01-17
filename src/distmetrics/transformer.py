@@ -194,7 +194,7 @@ def get_device() -> str:
     return device
 
 
-def load_trained_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransformer:
+def load_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransformer:
     if model_token not in ['latest', 'original']:
         raise ValueError('model_token must be latest or original')
     if model_token == 'latest':

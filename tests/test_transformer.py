@@ -1,9 +1,18 @@
+from pathlib import Path
+
 import numpy as np
+from numpy.testing import assert_allclose
 import torch
 from scipy.special import logit
+import rasterio
 from tqdm import tqdm
 
-from distmetrics.transformer import _transform_pre_arrs, get_device
+from distmetrics.transformer import (
+    _transform_pre_arrs,
+    get_device,
+    load_transformer_model,
+    estimate_normal_params_of_logits,
+)
 
 
 @torch.no_grad()
@@ -95,3 +104,52 @@ def estimate_normal_params_as_logits_explicit(
     pred_logvars = pred_logvars.cpu().numpy().squeeze()
     pred_sigmas = np.sqrt(np.exp(pred_logvars))
     return pred_means, pred_sigmas
+
+
+def test_logit_estimation(test_data_dir: Path) -> None:
+    all_paths = list(test_data_dir.glob('*.tif'))
+    vv_paths = [p for p in all_paths if 'VH' in p.name]
+    vh_paths = [p for p in all_paths if 'VV' in p.name]
+    assert len(vv_paths) == len(vh_paths)
+
+    def open_arr(path: Path) -> np.ndarray:
+        with rasterio.open(path) as src:
+            return src.read(1)
+
+    vv_arrs = [open_arr(p) for p in vv_paths]
+    vh_arrs = [open_arr(p) for p in vh_paths]
+
+    model = load_transformer_model()
+    pred_means_explicit, pred_sigmas_explicit = estimate_normal_params_as_logits_explicit(
+        model, vv_arrs, vh_arrs, stride=2
+    )
+    pred_means_stream, pred_sigmas_stream = estimate_normal_params_of_logits(
+        model, vv_arrs, vh_arrs, memory_strategy='low', stride=2
+    )
+    pred_means_fold, pred_sigmas_fold = estimate_normal_params_of_logits(
+        model, vv_arrs, vh_arrs, memory_strategy='high', stride=2
+    )
+
+    edge_buffer = 16
+    sy_buffer = np.s_[edge_buffer:-edge_buffer]
+    sx_buffer = np.s_[edge_buffer:-edge_buffer]
+    assert_allclose(
+        pred_means_explicit[:, sy_buffer, sx_buffer],
+        pred_means_stream[:, sy_buffer, sx_buffer],
+        atol=1e-5,
+    )
+    assert_allclose(
+        pred_sigmas_explicit[:, sy_buffer, sx_buffer],
+        pred_sigmas_stream[:, sy_buffer, sx_buffer],
+        atol=1e-5,
+    )
+    assert_allclose(
+        pred_means_explicit[:, sy_buffer, sx_buffer],
+        pred_means_fold[:, sy_buffer, sx_buffer],
+        atol=1e-5,
+    )
+    assert_allclose(
+        pred_sigmas_explicit[:, sy_buffer, sx_buffer],
+        pred_sigmas_fold[:, sy_buffer, sx_buffer],
+        atol=1e-5,
+    )
