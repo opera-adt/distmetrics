@@ -1,9 +1,9 @@
+import platform
 from collections.abc import Callable, Generator
 from pathlib import Path
 
 import einops
 import numpy as np
-import platform
 import torch
 import torch.mps
 import torch.nn as nn
