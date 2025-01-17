@@ -20,6 +20,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 * Data directory structure
+* Only support python 3.12+
 
 
 ## [0.0.2]
