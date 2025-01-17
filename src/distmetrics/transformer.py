@@ -223,7 +223,9 @@ def _estimate_logit_params_via_streamed_patches(
     max_nodata_ratio: float = 0.1,
     tqdm_enabled: bool = True,
 ) -> tuple[np.ndarray]:
-    """Estimate the mean and sigma of the normal distribution of logit input images.
+    """Estimate the mean and sigma of the normal distribution of logit input images using low-memory strategy.
+
+    This streams the data in chunks *on the CPU* and requires less GPU memory, but is slower due to data transfer.
 
     Parameters
     ----------
@@ -316,7 +318,9 @@ def _estimate_logit_params_via_folding(
     batch_size: int = 32,
     tqdm_enabled: bool = True,
 ) -> tuple[np.ndarray]:
-    """Estimate the mean and sigma of the normal distribution of logit input images.
+    """Estimate the mean and sigma of the normal distribution of logit input images using high-memory strategy.
+
+    This uses folding/unfolding which stores pixels reduntly in memory, but is very fast on the GPU.
 
     Parameters
     ----------
