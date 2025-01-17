@@ -145,7 +145,12 @@ class SpatioTemporalTransformer(nn.Module):
         )  # batch, seq_len, num_patches, data_dim
 
         img_baseline = (
-            self.embedding(img_baseline) + self.spatial_pos_embed + self.temporal_pos_embed[:, :seq_len, :, :]
+            self.embedding(img_baseline)
+            + self.spatial_pos_embed
+            # changed self.temporal_pos_embed[:, :seq_len, :, :]
+            # to self.temporal_pos_embed[:, (self.max_seq_len-seq_len):, :, :] to ensure last pre-image always has
+            # correct index
+            + self.temporal_pos_embed[:, (self.max_seq_len - seq_len) :, :, :]
         )  # batch, seq_len, num_patches, d_model
 
         img_baseline = img_baseline.view(
