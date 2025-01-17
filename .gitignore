@@ -51,7 +51,6 @@ __pycache__/
 .envrc
 
 # Gdal and other image formats
-*.tif
 *.xml
 *.shp
 *.sbx
@@ -66,7 +65,6 @@ __pycache__/
 *.jpg
 *.wld
 *.geojson
-*.tif
 
 # VRT
 *.vrt
