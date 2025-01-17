@@ -1,6 +1,7 @@
-name: Test
+name: Run Pytest
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -11,10 +12,32 @@ on:
       - dev
 
 jobs:
-  call-pytest-workflow:
-    # Docs: https://github.com/ASFHyP3/actions
-    uses: ASFHyP3/actions/.github/workflows/reusable-pytest.yml@v0.11.0
-    with:
-      local_package_name: distmetrics
-      python_versions: >-
-        ["3.10", "3.11", "3.12"]
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: extractions/netrc@v2
+        with:
+          machine: urs.earthdata.nasa.gov
+          username: ${{ secrets.EARTHDATA_USERNAME }}
+          password: ${{ secrets.EARTHDATA_PASSWORD }}
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+            environment-name: distmetrics
+            environment-file: environment.yml
+            create-args: >-
+              python=${{ matrix.python-version }}
+
+
+      - name: Pytest in conda environment
+        shell: bash -l {0}
+        run: |
+          python -m pip install --no-deps .
+          pytest . 

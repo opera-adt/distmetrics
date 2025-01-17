@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2025-01-16
+
+### Fixed
+* Fixed ASF calls in landslide transformer notebook - more data is becoming available so static slices do not work
+
+### Added
+
+* Consistent linting of DIST-S1 repositories
+* Expose estimation of the normal parameters of the logit images with high/low memory usage.
+* Added transformer test based on usage of different strategies of computation.
+* Uploaded latest model
+
+### Changed
+* Data directory structure
+* Only support python 3.12+
+
+
 ## [0.0.2]
 
 ### Fixed

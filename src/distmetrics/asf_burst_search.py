@@ -7,6 +7,18 @@ from rasterio.crs import CRS
 from shapely.geometry import shape
 
 
+def get_url_tif(row: pd.Series, polarization: str = 'vh') -> str:
+    if polarization not in ['vv', 'vh']:
+        raise ValueError('polarization not specified correctly')
+    urls = [row.url] + row.additionalUrls
+    pol_token = '_VH.tif' if polarization == 'vh' else '_VV.tif'
+    valid_urls = [url for url in urls if pol_token in url]
+    if not valid_urls:
+        raise ValueError('No urls found')
+    tif_url = valid_urls[0]
+    return tif_url
+
+
 def get_asf_rtc_burst_ts(burst_id: str) -> gpd.GeoDataFrame:
     # make sure JPL syntax is transformed to asf syntax
     burst_id_asf = burst_id.upper().replace('-', '_')
@@ -26,14 +38,17 @@ def get_asf_rtc_burst_ts(burst_id: str) -> gpd.GeoDataFrame:
             'opera_id': p['sceneName'],
             'acq_datetime': pd.to_datetime(p['startTime']),
             'polarization': '+'.join(p['polarization']),
-            'url_vh': p['url'],
-            'url_vv': (p['url'].replace('_VH.tif', '_VV.tif')),
+            'url': p['url'],
+            'additionalUrls': p['additionalUrls'],
             'track_number': p['pathNumber'],
         }
         for p in properties
     ]
 
     df_rtc_ts = gpd.GeoDataFrame(properties_f, geometry=geometry, crs=CRS.from_epsg(4326))
+    df_rtc_ts['url_vh'] = df_rtc_ts.apply(get_url_tif, axis=1, polarization='vh')
+    df_rtc_ts['url_vv'] = df_rtc_ts.apply(get_url_tif, axis=1, polarization='vv')
+    df_rtc_ts.drop(columns=['url', 'additionalUrls'], inplace=True)
     # Ensure dual polarization
     df_rtc_ts = df_rtc_ts[df_rtc_ts.polarization == 'VV+VH'].reset_index(drop=True)
     df_rtc_ts = df_rtc_ts.sort_values(by='acq_datetime').reset_index(drop=True)
