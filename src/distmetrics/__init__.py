@@ -4,7 +4,7 @@ from .cusum import compute_cusum_1d, compute_prob_cusum_1d
 from .despeckle import despeckle_one_rtc_arr_with_tv, despeckle_rtc_arrs_with_tv
 from .logratio import compute_log_ratio_decrease_metric
 from .mahalanobis import compute_mahalonobis_dist_1d, compute_mahalonobis_dist_2d
-from .transformer import compute_transformer_zscore, get_device, load_trained_transformer_model
+from .transformer import compute_transformer_zscore, get_device, load_transformer_model
 
 
 __all__ = [
@@ -15,7 +15,7 @@ __all__ = [
     'get_asf_rtc_burst_ts',
     'read_asf_rtc_image_data',
     'compute_log_ratio_decrease_metric',
-    'load_trained_transformer_model',
+    'load_transformer_model',
     'compute_transformer_zscore',
     'get_device',
     'compute_cusum_1d',

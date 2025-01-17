@@ -3,7 +3,6 @@ dependencies:
  - python>=3.10
  - asf_search
  - astropy
- - astropy
  - backoff
  - dill
  - einops

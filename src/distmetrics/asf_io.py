@@ -28,9 +28,9 @@ def read_one_asf(url: str) -> tuple[np.ndarray, dict]:
     return arr, prof
 
 
-def read_asf_rtc_image_data(urls: list[str], max_workers=5) -> tuple[list]:
+def read_asf_rtc_image_data(urls: list[str], max_workers: int = 5) -> tuple[list]:
     N = len(urls)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         data = list(tqdm(executor.map(read_one_asf, urls), total=N, desc='Loading RTC data'))
     arrs, profiles = zip(*data)
     return arrs, profiles

@@ -16,9 +16,9 @@ def despeckle_one_rtc_arr_with_tv(X: np.ndarray, reg_param: float = 5, noise_flo
 
 
 def despeckle_rtc_arrs_with_tv(
-    arrs: list[np.ndarray], reg_param=5, noise_floor_db: float = -22, n_jobs: int = 10
+    arrs: list[np.ndarray], reg_param: float = 5, noise_floor_db: float = -22, n_jobs: int = 10
 ) -> list[np.ndarray]:
-    def dspkl(X: np.ndarray):
+    def dspkl(X: np.ndarray) -> np.ndarray:
         return despeckle_one_rtc_arr_with_tv(X, reg_param=reg_param, noise_floor_db=noise_floor_db)
 
     with WorkerPool(n_jobs=n_jobs, use_dill=True) as pool:
