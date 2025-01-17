@@ -1,17 +1,17 @@
 from pathlib import Path
 
 import numpy as np
-from numpy.testing import assert_allclose
-import torch
-from scipy.special import logit
 import rasterio
+import torch
+from numpy.testing import assert_allclose
+from scipy.special import logit
 from tqdm import tqdm
 
 from distmetrics.transformer import (
     _transform_pre_arrs,
+    estimate_normal_params_of_logits,
     get_device,
     load_transformer_model,
-    estimate_normal_params_of_logits,
 )
 
 
