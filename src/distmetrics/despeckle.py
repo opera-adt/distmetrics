@@ -32,6 +32,6 @@ def despeckle_rtc_arrs_with_tv(
             progress_bar=tqdm_enabled,
             progress_bar_style='std',
             concatenate_numpy_output=False,
-            progress_bar_options=dict(desc='Despeckling bursts'),
+            progress_bar_options=dict(desc='Despeckling', dynamic_ncols=True),
         )
     return arrs_dspk
