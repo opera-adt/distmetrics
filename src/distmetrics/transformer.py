@@ -299,7 +299,6 @@ def _estimate_logit_params_via_streamed_patches(
         mininterval=2,
         disable=(not tqdm_enabled),
         dynamic_ncols=True,
-        display=True,
     ):
         chip_mean, chip_logvar = model(patch_batch)
         for k, (sy, sx) in enumerate(slices):
@@ -407,7 +406,6 @@ def _estimate_logit_params_via_folding(
         mininterval=2,
         disable=(not tqdm_enabled),
         dynamic_ncols=True,
-        display=True,
     ):
         # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
         batch_s = slice(batch_size * i, batch_size * (i + 1))
