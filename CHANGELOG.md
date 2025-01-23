@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2025-01-18
+
+### Fixed
+* Fixed transformer to ensure last pre-image always has correct index
+
+### Added
+* Arxiv link to README
+* Installation instructions
+* `tqdm` description for despeckling
+* Allow user to disable `tqdm` for despeckle
+
+### Changed
+* Renamed `load_trained_transformer_model` to `load_transformer_model`
+* Renamed inputs to reflect (possible) usage with other polarizations: `vv` -> `copol` and `vh` -> `crosspol`. The APIs don't change, just the variable name inputs.
+
+
 ## [0.0.3] - 2025-01-16
 
 ### Fixed

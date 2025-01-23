@@ -33,7 +33,13 @@ It is worth noting that other metrics can be generated from the above using `+`,
 
 ## Installation
 
-...
+We recommend using the `conda/mamba` package manager to install this library.
+
+```
+mamba install -c conda-forge distmetrics
+```
+
+You can also use `pip`, although this doesn't ensure proper dependencies are installed.
 
 
 ### For development
@@ -55,7 +61,7 @@ get_device() # should be `cuda` if GPU is available or `mps` if using mac M chip
 
 # References
 
-<a id=1>[1]</a> H. Hardiman Mostow et al., "Deep Self-Supervised Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", *in preparation 2024*.
+<a id=1>[1]</a> H. Hardiman Mostow et al., "Deep Self-Supervised Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", [arXiv](https://arxiv.org/abs/2409.15568).
 
 <a id=2>[2]</a> O. L. Stephenson et al., "Deep Learning-Based Damage Mapping With InSAR Coherence Time Series," in IEEE Transactions on Geoscience and Remote Sensing, vol. 60, pp. 1-17, 2022, Art no. 5207917, doi: 10.1109/TGRS.2021.3084209. https://arxiv.org/abs/2105.11544 
 
