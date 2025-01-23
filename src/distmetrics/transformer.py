@@ -222,8 +222,8 @@ def load_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransfo
 @torch.no_grad()
 def _estimate_logit_params_via_streamed_patches(
     model: torch.nn.Module,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
+    imgs_copol: list[np.ndarray],
+    imgs_crosspol: list[np.ndarray],
     stride: int = 2,
     batch_size: int = 32,
     max_nodata_ratio: float = 0.1,
@@ -261,7 +261,7 @@ def _estimate_logit_params_via_streamed_patches(
     device = get_device()
 
     # stack to T x 2 x H x W
-    pre_imgs_stack = _transform_pre_arrs(pre_imgs_vv, pre_imgs_vh)
+    pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
     pre_imgs_stack = pre_imgs_stack.astype('float32')
 
     # Mask
@@ -318,8 +318,8 @@ def _estimate_logit_params_via_streamed_patches(
 @torch.no_grad()
 def _estimate_logit_params_via_folding(
     model: torch.nn.Module,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
+    imgs_copol: list[np.ndarray],
+    imgs_crosspol: list[np.ndarray],
     stride: int = 2,
     batch_size: int = 32,
     tqdm_enabled: bool = True,
@@ -357,7 +357,7 @@ def _estimate_logit_params_via_folding(
     device = get_device()
 
     # stack to T x 2 x H x W
-    pre_imgs_stack = _transform_pre_arrs(pre_imgs_vv, pre_imgs_vh)
+    pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
     pre_imgs_stack = pre_imgs_stack.astype('float32')
 
     # Mask
@@ -435,8 +435,8 @@ def _estimate_logit_params_via_folding(
 
 def estimate_normal_params_of_logits(
     model: torch.nn.Module,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
+    imgs_copol: list[np.ndarray],
+    imgs_crosspol: list[np.ndarray],
     stride: int = 2,
     batch_size: int = 32,
     tqdm_enabled: bool = True,
@@ -450,17 +450,17 @@ def estimate_normal_params_of_logits(
     )
 
     mu, sigma = estimate_logits(
-        model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled
+        model, imgs_copol, imgs_crosspol, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled
     )
     return mu, sigma
 
 
 def compute_transformer_zscore(
     model: torch.nn.Module,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
-    post_arr_vv: np.ndarray,
-    post_arr_vh: np.ndarray,
+    pre_imgs_copol: list[np.ndarray],
+    pre_imgs_crosspol: list[np.ndarray],
+    post_arr_copol: np.ndarray,
+    post_arr_crosspol: np.ndarray,
     stride: int = 4,
     batch_size: int = 32,
     tqdm_enabled: bool = True,
@@ -486,15 +486,15 @@ def compute_transformer_zscore(
 
     mu, sigma = estimate_normal_params_of_logits(
         model,
-        pre_imgs_vv,
-        pre_imgs_vh,
+        pre_imgs_copol,
+        pre_imgs_crosspol,
         stride=stride,
         batch_size=batch_size,
         tqdm_enabled=tqdm_enabled,
         memory_strategy=memory_strategy,
     )
 
-    post_arr_logit_s = logit(np.stack([post_arr_vv, post_arr_vh], axis=0))
+    post_arr_logit_s = logit(np.stack([post_arr_copol, post_arr_crosspol], axis=0))
     z_score_dual = np.abs(post_arr_logit_s - mu) / sigma
     z_score = agg(z_score_dual, axis=0)
     m_dist = DiagMahalanobisDistance2d(dist=z_score, mean=mu, std=sigma)
