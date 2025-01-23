@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pydantic import BaseModel, model_validator
 from scipy.special import logit
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from distmetrics.mahalanobis import _transform_pre_arrs
 from distmetrics.model_data.transformer_config import transformer_config, transformer_latest_config
@@ -222,8 +222,8 @@ def load_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransfo
 @torch.no_grad()
 def _estimate_logit_params_via_streamed_patches(
     model: torch.nn.Module,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
+    imgs_copol: list[np.ndarray],
+    imgs_crosspol: list[np.ndarray],
     stride: int = 2,
     batch_size: int = 32,
     max_nodata_ratio: float = 0.1,
@@ -261,7 +261,7 @@ def _estimate_logit_params_via_streamed_patches(
     device = get_device()
 
     # stack to T x 2 x H x W
-    pre_imgs_stack = _transform_pre_arrs(pre_imgs_vv, pre_imgs_vh)
+    pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
     pre_imgs_stack = pre_imgs_stack.astype('float32')
 
     # Mask
@@ -293,7 +293,12 @@ def _estimate_logit_params_via_streamed_patches(
     unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
     for patch_batch, slices in tqdm(
-        unfold_gen, total=n_batches, desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)
+        unfold_gen,
+        total=n_batches,
+        desc='Chips Traversed',
+        mininterval=2,
+        disable=(not tqdm_enabled),
+        dynamic_ncols=True,
     ):
         chip_mean, chip_logvar = model(patch_batch)
         for k, (sy, sx) in enumerate(slices):
@@ -318,8 +323,8 @@ def _estimate_logit_params_via_streamed_patches(
 @torch.no_grad()
 def _estimate_logit_params_via_folding(
     model: torch.nn.Module,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
+    imgs_copol: list[np.ndarray],
+    imgs_crosspol: list[np.ndarray],
     stride: int = 2,
     batch_size: int = 32,
     tqdm_enabled: bool = True,
@@ -357,7 +362,7 @@ def _estimate_logit_params_via_folding(
     device = get_device()
 
     # stack to T x 2 x H x W
-    pre_imgs_stack = _transform_pre_arrs(pre_imgs_vv, pre_imgs_vh)
+    pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
     pre_imgs_stack = pre_imgs_stack.astype('float32')
 
     # Mask
@@ -395,7 +400,13 @@ def _estimate_logit_params_via_folding(
     pred_means_p = torch.zeros(*target_chip_shape).to(device)
     pred_logvars_p = torch.zeros(*target_chip_shape).to(device)
 
-    for i in tqdm(range(n_batches), desc='Chips Traversed', mininterval=2, disable=(not tqdm_enabled)):
+    for i in tqdm(
+        range(n_batches),
+        desc='Chips Traversed',
+        mininterval=2,
+        disable=(not tqdm_enabled),
+        dynamic_ncols=True,
+    ):
         # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
         batch_s = slice(batch_size * i, batch_size * (i + 1))
         patch_batch = patches[batch_s, ...].view(-1, T, C, P, P)
@@ -435,8 +446,8 @@ def _estimate_logit_params_via_folding(
 
 def estimate_normal_params_of_logits(
     model: torch.nn.Module,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
+    imgs_copol: list[np.ndarray],
+    imgs_crosspol: list[np.ndarray],
     stride: int = 2,
     batch_size: int = 32,
     tqdm_enabled: bool = True,
@@ -450,17 +461,17 @@ def estimate_normal_params_of_logits(
     )
 
     mu, sigma = estimate_logits(
-        model, pre_imgs_vv, pre_imgs_vh, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled
+        model, imgs_copol, imgs_crosspol, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled
     )
     return mu, sigma
 
 
 def compute_transformer_zscore(
     model: torch.nn.Module,
-    pre_imgs_vv: list[np.ndarray],
-    pre_imgs_vh: list[np.ndarray],
-    post_arr_vv: np.ndarray,
-    post_arr_vh: np.ndarray,
+    pre_imgs_copol: list[np.ndarray],
+    pre_imgs_crosspol: list[np.ndarray],
+    post_arr_copol: np.ndarray,
+    post_arr_crosspol: np.ndarray,
     stride: int = 4,
     batch_size: int = 32,
     tqdm_enabled: bool = True,
@@ -486,15 +497,15 @@ def compute_transformer_zscore(
 
     mu, sigma = estimate_normal_params_of_logits(
         model,
-        pre_imgs_vv,
-        pre_imgs_vh,
+        pre_imgs_copol,
+        pre_imgs_crosspol,
         stride=stride,
         batch_size=batch_size,
         tqdm_enabled=tqdm_enabled,
         memory_strategy=memory_strategy,
     )
 
-    post_arr_logit_s = logit(np.stack([post_arr_vv, post_arr_vh], axis=0))
+    post_arr_logit_s = logit(np.stack([post_arr_copol, post_arr_crosspol], axis=0))
     z_score_dual = np.abs(post_arr_logit_s - mu) / sigma
     z_score = agg(z_score_dual, axis=0)
     m_dist = DiagMahalanobisDistance2d(dist=z_score, mean=mu, std=sigma)
