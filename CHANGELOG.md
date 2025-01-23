@@ -17,6 +17,10 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `tqdm` description for despeckling
 * Allow user to disable `tqdm` for despeckle
 
+### Changed
+* Renamed `load_trained_transformer_model` to `load_transformer_model`
+* Renamed inputs to reflect (possible) usage with other polarizations: `vv` -> `copol` and `vh` -> `crosspol`. The APIs don't change, just the variable name inputs.
+
 
 ## [0.0.3] - 2025-01-16
 
