@@ -14,6 +14,9 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 * Arxiv link to README
 * Installation instructions
+* `tqdm` description for despeckling
+* Allow user to disable `tqdm` for despeckle
+
 
 ## [0.0.3] - 2025-01-16
 
