@@ -214,8 +214,8 @@ def load_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransfo
     transformer = SpatioTemporalTransformer(config).to(device)
     transformer.load_state_dict(weights)
     transformer = transformer.eval()
-    ## TODO: Can this be reintroduced with any improvement to inference speed?
-    ## Requires more sensitivity to environment.
+    # TODO: Can this be reintroduced with any improvement to inference speed?
+    # Requires more sensitivity to environment.
     # if device == 'cuda':
     #     transformer = torch.compile(transformer)
     return transformer
