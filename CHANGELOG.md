@@ -13,7 +13,9 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     * can be used to average over overlapping areas
     * average using the distance from exterior mask (mask that touches one of the four edges)
     * exterior mask can also be dilated to avoid problematic boundary pixels
+    * categorical merging of data
 * Added `nd_tools` for getting exterior mask and distance from such mask (wrappers around `scipy.ndimage`)
+* A notebook for applying the transformer metric to a large area of interest
 
 ### Removed
 * Removed torch.compile from transformer model loading
