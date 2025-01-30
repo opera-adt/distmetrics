@@ -87,3 +87,6 @@ __pycache__/
 
 # old notebooks
 notebooks/deprecated/
+
+# data output from nbs
+notebooks/out/
