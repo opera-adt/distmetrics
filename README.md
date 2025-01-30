@@ -41,6 +41,14 @@ mamba install -c conda-forge distmetrics
 
 You can also use `pip`, although this doesn't ensure proper dependencies are installed.
 
+### GPU support
+
+To get the best performance of pytorch, you need to ensure pytorch recognizes the GPU.
+Using `conda-forge` distributions, you may require you to ensure that `cudatoolkit` is installed (this is the additional library in `environment_gpu.yml`).
+For our servers, we needed to install `cudatoolkit>=11.8` to get pytorch to recognize the GPU.
+There are certain libraries that may downgrade `pytorch` to use CPU only (you can check this by looking at the distribution of pytorch before installing the library).
+There may be different distributions of pytorch and cuda drivers that are compatible, but providing detailed instructions is beyond the scope of these instructions.
+
 
 ### For development
 
