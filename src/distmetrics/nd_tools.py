@@ -6,13 +6,11 @@ from scipy.ndimage import label as labeler
 def get_exterior_nodata_mask(image: np.ndarray, nodata_val: float | int = np.nan) -> np.ndarray:
     if len(image.shape) != 2:
         raise ValueError('can only get exterior mask for 2d array')
-    if np.isnan(nodata_val):
 
-        def identify_nodata(val: float | int | np.ndarray) -> np.ndarray | float | int:
+    def identify_nodata(val: float | int | np.ndarray) -> np.ndarray | float | int:
+        if np.isnan(nodata_val):
             return np.isnan(val)
-    else:
-
-        def identify_nodata(val: float | int | np.ndarray) -> np.ndarray | float | int:
+        else:
             return val == nodata_val
 
     nodata_mask = identify_nodata(image)
@@ -21,7 +19,7 @@ def get_exterior_nodata_mask(image: np.ndarray, nodata_val: float | int = np.nan
     edge_mask[0, :] = edge_mask[-1, :] = edge_mask[:, 0] = edge_mask[:, -1] = True
     exterior_labels = list(np.unique(component_labels[edge_mask & nodata_mask]))
     exterior_mask = np.isin(component_labels, exterior_labels).astype(np.uint8)
-    return exterior_mask
+    return exterior_mask.astype(np.uint8)
 
 
 def generate_dilated_exterior_nodata_mask(

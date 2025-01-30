@@ -1,0 +1,36 @@
+name: distmetrics
+dependencies:
+ - python>=3.10
+ - asf_search
+ - astropy
+ - backoff
+ - dem_stitcher
+ - dill
+ - einops
+ - flake8
+ - flake8-blind-except
+ - flake8-builtins
+ - flake8-import-order
+ - gdal
+ - geopandas
+ - jupyterlab
+ - matplotlib
+ - mpire
+ - multiprocess
+ - numpy
+ - pandas
+ - pydantic
+ - pytest
+ - pytest-cov
+ - pytorch
+ - rasterio
+ - requests
+ - ruff
+ - scikit-image
+ - scipy
+ - setuptools
+ - setuptools_scm
+ - shapely
+ - tqdm
+ - pip
+ - cudatoolkit>=11.8
