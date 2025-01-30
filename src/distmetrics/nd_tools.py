@@ -1,7 +1,6 @@
 import numpy as np
+from scipy.ndimage import binary_dilation, distance_transform_edt
 from scipy.ndimage import label as labeler
-from scipy.ndimage import distance_transform_edt
-from scipy.ndimage import binary_dilation
 
 
 def get_exterior_nodata_mask(image: np.ndarray, nodata_val: float | int = np.nan) -> np.ndarray:
