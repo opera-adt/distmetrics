@@ -41,6 +41,14 @@ mamba install -c conda-forge distmetrics
 
 You can also use `pip`, although this doesn't ensure proper dependencies are installed.
 
+### GPU support
+
+To get the best performance of pytorch, you need to ensure pytorch recognizes the GPU.
+Using `conda-forge` distributions, you may require you to ensure that `cudatoolkit` is installed (this is the additional library in `environment_gpu.yml`).
+For our servers, we needed to install `cudatoolkit>=11.8` to get pytorch to recognize the GPU.
+There are certain libraries that may downgrade `pytorch` to use CPU only (you can check this by looking at the distribution of pytorch before installing the library).
+There may be different distributions of pytorch and cuda drivers that are compatible, but providing detailed instructions is beyond the scope of these instructions.
+
 
 ### For development
 
@@ -61,7 +69,7 @@ get_device() # should be `cuda` if GPU is available or `mps` if using mac M chip
 
 # References
 
-<a id=1>[1]</a> H. Hardiman Mostow et al., "Deep Self-Supervised Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", [arXiv](https://arxiv.org/abs/2409.15568).
+<a id=1>[1]</a> H. Hardiman Mostow et al., "Deep Self-Supervised Disturbance Mapping with Sentinel-1 OPERA RTC Synthetic Aperture Radar", [https://arxiv.org/abs/2501.09129](https://arxiv.org/abs/2501.09129).
 
 <a id=2>[2]</a> O. L. Stephenson et al., "Deep Learning-Based Damage Mapping With InSAR Coherence Time Series," in IEEE Transactions on Geoscience and Remote Sensing, vol. 60, pp. 1-17, 2022, Art no. 5207917, doi: 10.1109/TGRS.2021.3084209. https://arxiv.org/abs/2105.11544 
 

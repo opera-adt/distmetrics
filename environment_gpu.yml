@@ -33,3 +33,4 @@ dependencies:
  - shapely
  - tqdm
  - pip
+ - cudatoolkit>=11.8
