@@ -121,7 +121,7 @@ def merge_categorical_arrays(
     profiles: list[dict],
     target_crs: CRS | None = None,
     exterior_mask_dilation: int = 0,
-    merge_method: str = 'mode',
+    merge_method: str = 'min',
 ) -> tuple[np.ndarray, dict]:
     arrs_r, profiles_target = reproject_arrays_to_target_crs(
         arrs, profiles, target_crs=target_crs, resampling_method='nearest'
