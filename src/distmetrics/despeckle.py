@@ -1,8 +1,12 @@
 import concurrent.futures
+import multiprocessing as mp
 
 import numpy as np
 from skimage.restoration import denoise_tv_bregman
 from tqdm import tqdm
+
+
+mp.set_start_method('spawn')
 
 
 def despeckle_one_rtc_arr_with_tv(X: np.ndarray, reg_param: float = 5, noise_floor_db: float = -22) -> np.ndarray:
