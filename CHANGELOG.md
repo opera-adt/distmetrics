@@ -10,6 +10,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 * Pyproject.toml and environment.yml to require python 3.12+
+* Pydantic model_config to allow arbitrary types (update for v2)
 
 ### Removed 
 * `mpire` dependency

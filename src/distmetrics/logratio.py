@@ -1,5 +1,5 @@
 import numpy as np
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from .mahalanobis import get_spatiotemporal_mu_1d
 
@@ -8,8 +8,7 @@ class LogRatioDecrease(BaseModel):
     dist: np.ndarray
     pre_img_agg: np.ndarray
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
     def check_shape(cls, values: dict) -> dict:
