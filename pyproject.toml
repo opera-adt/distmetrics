@@ -31,15 +31,13 @@ dependencies = [
         'scipy',
         'pydantic',
         'astropy',
-        # 'pytorch',
+        'pytorch',
         'einops',
         'backoff',
         'asf_search',
         'shapely',
         'geopandas',
         'tqdm',
-        'dill',
-        'mpire',
         'pandas',
 ]
 
