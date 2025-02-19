@@ -9,7 +9,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.0.7] - 2025-02-20
 
 ### Fixed
-* Pyproject.toml to require python 3.12+
+* Pyproject.toml and environment.yml to require python 3.12+
 
 ### Removed 
 * `mpire` dependency
