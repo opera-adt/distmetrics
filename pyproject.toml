@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = 'distmetrics'
-requires-python = '>=3.10'
+requires-python = '>=3.12'
 authors = [
     {name ='Jungkyo Jung, Charlie Marshak, Talib Oliver-Cabrera, Richard West and OPERA Team', email ='opera-pst-dev@jpl.nasa.gov'}
 ]
