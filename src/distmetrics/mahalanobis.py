@@ -12,7 +12,7 @@ class MahalanobisDistance1d(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def check_shape(cls, values: dict) -> 'MahalanobisDistance2d':
+    def check_shape(cls, values: dict) -> 'MahalanobisDistance1d':
         dist = values.dist if not isinstance(values.dist, list) else values.dist[0]
         mean = values.mean
         std = values.std
