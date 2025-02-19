@@ -5,7 +5,6 @@ dependencies:
  - astropy
  - backoff
  - dem_stitcher
- - dill
  - einops
  - flake8
  - flake8-blind-except
@@ -15,8 +14,6 @@ dependencies:
  - geopandas
  - jupyterlab
  - matplotlib
- - mpire
- - multiprocess
  - numpy
  - pandas
  - pydantic
