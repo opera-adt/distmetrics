@@ -106,8 +106,8 @@ def estimate_normal_params_as_logits_explicit(
     return pred_means, pred_sigmas
 
 
-def test_logit_estimation(test_data_dir: Path) -> None:
-    all_paths = list(test_data_dir.glob('*.tif'))
+def test_logit_estimation(cropped_despeckled_data_dir: Path) -> None:
+    all_paths = list(cropped_despeckled_data_dir.glob('*.tif'))
     vv_paths = [p for p in all_paths if 'VH' in p.name]
     vh_paths = [p for p in all_paths if 'VV' in p.name]
     assert len(vv_paths) == len(vh_paths)

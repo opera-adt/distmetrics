@@ -1,11 +1,10 @@
 name: distmetrics
 dependencies:
- - python>=3.10
+ - python>=3.12
  - asf_search
  - astropy
  - backoff
  - dem_stitcher
- - dill
  - einops
  - flake8
  - flake8-blind-except
@@ -15,8 +14,6 @@ dependencies:
  - geopandas
  - jupyterlab
  - matplotlib
- - mpire
- - multiprocess
  - numpy
  - pandas
  - pydantic

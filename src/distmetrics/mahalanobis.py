@@ -1,6 +1,6 @@
 import numpy as np
 from astropy.convolution import convolve
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 from scipy.special import logit
 
 
@@ -9,11 +9,10 @@ class MahalanobisDistance1d(BaseModel):
     mean: np.ndarray
     std: np.ndarray
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def check_shape(cls, values: dict) -> dict:
+    def check_shape(cls, values: dict) -> 'MahalanobisDistance1d':
         dist = values.dist if not isinstance(values.dist, list) else values.dist[0]
         mean = values.mean
         std = values.std
@@ -28,11 +27,10 @@ class MahalanobisDistance2d(BaseModel):
     cov: np.ndarray
     cov_inv: np.ndarray
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def check_covariance_shape(cls, values: dict) -> dict:
+    def check_covariance_shape(cls, values: dict) -> 'MahalanobisDistance2d':
         """Check that our covariance matrix is of the form 2 x 2 x H x W."""
         cov = values.cov
         cov_inv = values.cov_inv
