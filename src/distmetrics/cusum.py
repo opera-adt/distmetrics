@@ -1,5 +1,5 @@
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from scipy.special import logit
 from scipy.stats import norm as normal
 
@@ -9,8 +9,7 @@ class CuSumDist(BaseModel):
     cusum_prev: np.ndarray | None
     drift: np.ndarray | None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def compute_cusum_1d(

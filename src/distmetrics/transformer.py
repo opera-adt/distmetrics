@@ -1,6 +1,7 @@
 import platform
 from collections.abc import Callable, Generator
 from pathlib import Path
+from typing import Union
 
 import einops
 import numpy as np
@@ -8,7 +9,7 @@ import torch
 import torch.mps
 import torch.nn as nn
 import torch.nn.functional as F
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 from scipy.special import logit
 from tqdm.auto import tqdm
 
@@ -59,12 +60,11 @@ def unfolding_stream(
 
 
 class DiagMahalanobisDistance2d(BaseModel):
-    dist: np.ndarray | list
+    dist: Union[np.ndarray, list]  # noqa: UP007
     mean: np.ndarray
     std: np.ndarray
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
     def check_shapes(cls, values: dict) -> dict:

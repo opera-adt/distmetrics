@@ -1,6 +1,13 @@
+import concurrent.futures
+import multiprocessing as mp
+
 import numpy as np
-from mpire import WorkerPool
 from skimage.restoration import denoise_tv_bregman
+from tqdm import tqdm
+
+
+# Use spawn for multiprocessing
+mp.set_start_method('spawn', force=True)
 
 
 def despeckle_one_rtc_arr_with_tv(X: np.ndarray, reg_param: float = 5, noise_floor_db: float = -22) -> np.ndarray:
@@ -22,16 +29,17 @@ def despeckle_rtc_arrs_with_tv(
     n_jobs: int = 10,
     tqdm_enabled: bool = True,
 ) -> list[np.ndarray]:
-    def dspkl(X: np.ndarray) -> np.ndarray:
-        return despeckle_one_rtc_arr_with_tv(X, reg_param=reg_param, noise_floor_db=noise_floor_db)
-
-    with WorkerPool(n_jobs=n_jobs, use_dill=True) as pool:
-        arrs_dspk = pool.map(
-            dspkl,
-            arrs,
-            progress_bar=tqdm_enabled,
-            progress_bar_style='std',
-            concatenate_numpy_output=False,
-            progress_bar_options=dict(desc='Despeckling', dynamic_ncols=True),
+    with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as executor:
+        results = list(
+            tqdm(
+                executor.map(
+                    despeckle_one_rtc_arr_with_tv, arrs, [reg_param] * len(arrs), [noise_floor_db] * len(arrs)
+                ),
+                total=len(arrs),
+                desc='Despeckling',
+                dynamic_ncols=True,
+                disable=not tqdm_enabled,
+            )
         )
-    return arrs_dspk
+
+    return results
