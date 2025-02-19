@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 # Use spawn for multiprocessing
-mp.set_start_method('spawn')
+mp.set_start_method('spawn', force=True)
 
 
 def despeckle_one_rtc_arr_with_tv(X: np.ndarray, reg_param: float = 5, noise_floor_db: float = -22) -> np.ndarray:

@@ -12,7 +12,7 @@ class MahalanobisDistance1d(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def check_shape(cls, values: dict) -> dict:
+    def check_shape(cls, values: dict) -> 'MahalanobisDistance2d':
         dist = values.dist if not isinstance(values.dist, list) else values.dist[0]
         mean = values.mean
         std = values.std
@@ -30,7 +30,7 @@ class MahalanobisDistance2d(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def check_covariance_shape(cls, values: dict) -> dict:
+    def check_covariance_shape(cls, values: dict) -> 'MahalanobisDistance2d':
         """Check that our covariance matrix is of the form 2 x 2 x H x W."""
         cov = values.cov
         cov_inv = values.cov_inv
