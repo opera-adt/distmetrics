@@ -43,7 +43,10 @@ def reproject_arrays_to_target_crs(
         for (k, p) in enumerate(profiles)
     ]
     arrs_r = [
-        reproject_arr_to_match_profile(arr, profiles[k], profiles_target[k], resampling=resampling_method)
+        # returns (array, profile) and only need array; also need to remove the extra single channel dimension in front
+        # Specifically, reproject_arr_to_match_profile returns a 3d array (C, H, W) with the first dimension being the
+        # single band so we need to squeeze it to remove the first dimension to make (H, W) array
+        reproject_arr_to_match_profile(arr, profiles[k], profiles_target[k], resampling=resampling_method)[0].squeeze()
         if crs_resampling_required[k]
         else arr
         for (k, arr) in enumerate(arrs)

@@ -9,6 +9,11 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.0.8] - 2025-02-20
 
 ### Fixed
+* Bug in `reproject_arrays_to_target_crs`
+
+## [0.0.8] - 2025-02-20
+
+### Fixed
 * Pyproject.toml kept dependencies for mpire and dill (those are now removed)
 
 
