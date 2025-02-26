@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import numpy as np
+import rasterio
 from dem_stitcher.merge import merge_arrays_with_geometadata
 from dem_stitcher.rio_tools import reproject_arr_to_match_profile, reproject_profile_to_new_crs
 from rasterio.crs import CRS
@@ -12,6 +15,13 @@ def _most_common(lst: list[CRS]) -> CRS:
 
 def most_common_crs(profiles: list[dict]) -> CRS:
     return _most_common([profile['crs'] for profile in profiles])
+
+
+def open_one_ds(path: Path | str) -> tuple[np.ndarray, dict]:
+    """Open a raster file and return the array and the profile."""
+    with rasterio.open(path) as src:
+        X, p = src.read(1), src.profile
+    return X, p
 
 
 def reproject_arrays_to_target_crs(
