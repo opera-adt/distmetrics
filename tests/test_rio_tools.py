@@ -18,9 +18,12 @@ def test_merge_categorical_arrays(
         arrs,
         profiles,
         merge_method='min',
+        # we are merging 2 datasets so need to specify the target crs as it can be random depending on which is chosen
+        target_crs=profiles[1]['crs'],
     )
+    merged_array = merged_array[0, ...]
     with rasterio.open(categorical_merge_output_data) as ds:
-        merged_array_expected = ds.read()
+        merged_array_expected = ds.read(1)
         merged_profile_expected = ds.profile
 
     assert_allclose(merged_array, merged_array_expected)

@@ -20,7 +20,7 @@ def categorical_merge_input_data() -> Path:
     """Return the absolute paths to the test categorical merge data inputs."""
     parent = (Path(__file__).parent / 'test_data' / 'categorical_merge_test_data').resolve()
     inputs = parent.glob('disturb_*.tif')
-    return list(inputs)
+    return sorted(list(inputs))
 
 
 @pytest.fixture
