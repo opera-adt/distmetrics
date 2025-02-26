@@ -20,7 +20,7 @@ def test_merge_categorical_arrays(
         merge_method='min',
     )
     with rasterio.open(categorical_merge_output_data) as ds:
-        merged_array_expected = ds.read(1)
+        merged_array_expected = ds.read()
         merged_profile_expected = ds.profile
 
     assert_allclose(merged_array, merged_array_expected)
