@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import numpy as np
+import rasterio
 from dem_stitcher.merge import merge_arrays_with_geometadata
 from dem_stitcher.rio_tools import reproject_arr_to_match_profile, reproject_profile_to_new_crs
 from rasterio.crs import CRS
@@ -12,6 +15,13 @@ def _most_common(lst: list[CRS]) -> CRS:
 
 def most_common_crs(profiles: list[dict]) -> CRS:
     return _most_common([profile['crs'] for profile in profiles])
+
+
+def open_one_ds(path: Path | str) -> tuple[np.ndarray, dict]:
+    """Open a raster file and return the array and the profile."""
+    with rasterio.open(path) as src:
+        X, p = src.read(1), src.profile
+    return X, p
 
 
 def reproject_arrays_to_target_crs(
@@ -43,7 +53,10 @@ def reproject_arrays_to_target_crs(
         for (k, p) in enumerate(profiles)
     ]
     arrs_r = [
-        reproject_arr_to_match_profile(arr, profiles[k], profiles_target[k], resampling=resampling_method)
+        # returns (array, profile) and only need array; also need to remove the extra single channel dimension in front
+        # Specifically, reproject_arr_to_match_profile returns a 3d array (C, H, W) with the first dimension being the
+        # single band so we need to squeeze it to remove the first dimension to make (H, W) array
+        reproject_arr_to_match_profile(arr, profiles[k], profiles_target[k], resampling=resampling_method)[0].squeeze()
         if crs_resampling_required[k]
         else arr
         for (k, arr) in enumerate(arrs)
