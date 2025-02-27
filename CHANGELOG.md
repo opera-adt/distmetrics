@@ -6,10 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.8] - 2025-02-20
+## [0.0.9] - 2025-02-20
 
 ### Fixed
-* Bug in `reproject_arrays_to_target_crs`
+* Bug in `reproject_arrays_to_target_crs`.
+
+### Added
+* Tests for merge categorical arrays using inputs that are in different crs.
 
 ## [0.0.8] - 2025-02-20
 

@@ -20,7 +20,7 @@ dependencies:
  - pytest
  - pytest-cov
  - pytorch
- - rasterio
+ - rasterio>=1.4.0  # merge was improved in minor release
  - requests
  - ruff
  - scikit-image
