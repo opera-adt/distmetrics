@@ -26,6 +26,8 @@ def test_merge_categorical_arrays(
     with rasterio.open(categorical_merge_output_data) as ds:
         merged_array_expected = ds.read(1)
         merged_profile_expected = ds.profile
+    with rasterio.open('merged.tif', 'w', **merged_profile) as dst:
+        dst.write(merged_array, 1)
 
     assert_allclose(merged_array, merged_array_expected)
     assert merged_profile['crs'] == merged_profile_expected['crs']
