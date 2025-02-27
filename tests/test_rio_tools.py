@@ -13,6 +13,7 @@ def test_merge_categorical_arrays(
     # read the input data
     input_data = [open_one_ds(path) for path in categorical_merge_input_data]
     arrs, profiles = zip(*input_data)
+
     # merge the input data
     merged_array, merged_profile = merge_categorical_arrays(
         arrs,
