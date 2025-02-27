@@ -19,6 +19,7 @@ def test_merge_categorical_arrays(
         arrs,
         profiles,
         merge_method='min',
+        exterior_mask_dilation=10,
         # we are merging 2 datasets so need to specify the target crs as it can be random depending on which is chosen
         target_crs=profiles[1]['crs'],
     )
