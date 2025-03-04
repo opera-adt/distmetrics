@@ -10,8 +10,8 @@ from tqdm import tqdm
 
 from distmetrics.transformer import (
     _transform_pre_arrs,
-    estimate_normal_params_of_logits,
     control_flow_for_device,
+    estimate_normal_params_of_logits,
     load_transformer_model,
 )
 
