@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.12] - 2025-03-05
+
+### Added
+* Test to ensure `cpu` and None interface work correctly for transformer metric.
+
+### Fixed
+* The `device` argument for transformer needs to be correctly passed throughout the transformer estimation process and test suite.
+
+
 ## [0.0.11] - 2025-03-05
 
 ### Added
