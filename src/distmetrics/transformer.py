@@ -329,6 +329,7 @@ def _estimate_logit_params_via_folding(
     imgs_crosspol: list[np.ndarray],
     stride: int = 2,
     batch_size: int = 32,
+    device: str | None = None,
     tqdm_enabled: bool = True,
 ) -> tuple[np.ndarray]:
     """Estimate the mean and sigma of the normal distribution of logit input images using high-memory strategy.
@@ -346,6 +347,9 @@ def _estimate_logit_params_via_folding(
         Should be between 1 and 16, by default 2.
     stride : int, optional
         How to batch chips.
+    device : str | None, optional
+        Device to run the model on. If None, will use the best device available.
+        Acceptable values are 'cpu', 'cuda', 'mps'. Defaults to None.
 
     Returns
     -------
@@ -361,7 +365,11 @@ def _estimate_logit_params_via_folding(
     assert stride <= P
     assert stride > 0
 
-    device = get_device()
+    if isinstance(device, str):
+        if device not in ['cpu', 'cuda', 'mps']:
+            raise ValueError('device must be one of cpu, cuda, mps')
+    else:
+        device = get_device()
 
     # stack to T x 2 x H x W
     pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
@@ -479,6 +487,7 @@ def compute_transformer_zscore(
     tqdm_enabled: bool = True,
     agg: str | Callable = 'max',
     memory_strategy: str = 'high',
+    device: str | None = None,
 ) -> DiagMahalanobisDistance2d:
     """
     Compute the transformer z-score.
@@ -505,6 +514,7 @@ def compute_transformer_zscore(
         batch_size=batch_size,
         tqdm_enabled=tqdm_enabled,
         memory_strategy=memory_strategy,
+        device=device,
     )
 
     post_arr_logit_s = logit(np.stack([post_arr_copol, post_arr_crosspol], axis=0))
