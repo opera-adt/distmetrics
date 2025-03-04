@@ -200,7 +200,16 @@ def get_device() -> str:
     return device
 
 
-def load_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransformer:
+def control_flow_for_device(device: str | None = None) -> str:
+    if device is None:
+        device = get_device()
+    elif isinstance(device, str):
+        if device not in ['cpu', 'cuda', 'mps']:
+            raise ValueError('device must be one of cpu, cuda, mps')
+    return device
+
+
+def load_transformer_model(model_token: str = 'latest', device: str | None = None) -> SpatioTemporalTransformer:
     if model_token not in ['latest', 'original']:
         raise ValueError('model_token must be latest or original')
     if model_token == 'latest':
@@ -209,7 +218,7 @@ def load_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransfo
     else:
         config = transformer_config
         weights_path = TRANSFORMER_WEIGHTS_PATH_ORIGINAL
-    device = get_device()
+    device = control_flow_for_device(device)
     weights = torch.load(weights_path, map_location=device, weights_only=True)
     transformer = SpatioTemporalTransformer(config).to(device)
     transformer.load_state_dict(weights)
@@ -230,6 +239,7 @@ def _estimate_logit_params_via_streamed_patches(
     batch_size: int = 32,
     max_nodata_ratio: float = 0.1,
     tqdm_enabled: bool = True,
+    device: str | None = None,
 ) -> tuple[np.ndarray]:
     """Estimate the mean and sigma of the normal distribution of logit input images using low-memory strategy.
 
@@ -260,7 +270,7 @@ def _estimate_logit_params_via_streamed_patches(
     assert stride <= P
     assert stride > 0
 
-    device = get_device()
+    device = control_flow_for_device(device)
 
     # stack to T x 2 x H x W
     pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
@@ -365,6 +375,8 @@ def _estimate_logit_params_via_folding(
     assert stride <= P
     assert stride > 0
 
+    device = control_flow_for_device(device)
+
     # stack to T x 2 x H x W
     pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
     pre_imgs_stack = pre_imgs_stack.astype('float32')
@@ -458,12 +470,6 @@ def estimate_normal_params_of_logits(
     memory_strategy: str = 'high',
     device: str | None = None,
 ) -> tuple[np.ndarray]:
-    if isinstance(device, str):
-        if device not in ['cpu', 'cuda', 'mps']:
-            raise ValueError('device must be one of cpu, cuda, mps')
-    else:
-        device = get_device()
-
     if memory_strategy not in ['high', 'low']:
         raise ValueError('memory strategy must be high or low')
 
