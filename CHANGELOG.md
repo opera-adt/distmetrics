@@ -8,6 +8,12 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.0.11] - 2025-03-05
 
+### Fixed
+* Device for transformer needs to be correctly passed throughout the transformer estimation process.
+
+
+## [0.0.11] - 2025-03-05
+
 ### Added
 * Ability to control `device` for transformer model
 

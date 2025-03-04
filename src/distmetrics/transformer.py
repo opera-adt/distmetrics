@@ -365,12 +365,6 @@ def _estimate_logit_params_via_folding(
     assert stride <= P
     assert stride > 0
 
-    if isinstance(device, str):
-        if device not in ['cpu', 'cuda', 'mps']:
-            raise ValueError('device must be one of cpu, cuda, mps')
-    else:
-        device = get_device()
-
     # stack to T x 2 x H x W
     pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
     pre_imgs_stack = pre_imgs_stack.astype('float32')
@@ -462,7 +456,14 @@ def estimate_normal_params_of_logits(
     batch_size: int = 32,
     tqdm_enabled: bool = True,
     memory_strategy: str = 'high',
+    device: str | None = None,
 ) -> tuple[np.ndarray]:
+    if isinstance(device, str):
+        if device not in ['cpu', 'cuda', 'mps']:
+            raise ValueError('device must be one of cpu, cuda, mps')
+    else:
+        device = get_device()
+
     if memory_strategy not in ['high', 'low']:
         raise ValueError('memory strategy must be high or low')
 
@@ -471,7 +472,7 @@ def estimate_normal_params_of_logits(
     )
 
     mu, sigma = estimate_logits(
-        model, imgs_copol, imgs_crosspol, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled
+        model, imgs_copol, imgs_crosspol, stride=stride, batch_size=batch_size, tqdm_enabled=tqdm_enabled, device=device
     )
     return mu, sigma
 
