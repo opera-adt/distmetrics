@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 import rasterio
 import torch
 from numpy.testing import assert_allclose
@@ -106,7 +107,8 @@ def estimate_normal_params_as_logits_explicit(
     return pred_means, pred_sigmas
 
 
-def test_logit_estimation(cropped_despeckled_data_dir: Path) -> None:
+@pytest.mark.parametrize('device', ['cpu', None])
+def test_logit_estimation(cropped_despeckled_data_dir: Path, device: str) -> None:
     all_paths = list(cropped_despeckled_data_dir.glob('*.tif'))
     vv_paths = [p for p in all_paths if 'VH' in p.name]
     vh_paths = [p for p in all_paths if 'VV' in p.name]
@@ -124,10 +126,10 @@ def test_logit_estimation(cropped_despeckled_data_dir: Path) -> None:
         model, vv_arrs, vh_arrs, stride=2
     )
     pred_means_stream, pred_sigmas_stream = estimate_normal_params_of_logits(
-        model, vv_arrs, vh_arrs, memory_strategy='low', stride=2
+        model, vv_arrs, vh_arrs, memory_strategy='low', stride=2, device=device
     )
     pred_means_fold, pred_sigmas_fold = estimate_normal_params_of_logits(
-        model, vv_arrs, vh_arrs, memory_strategy='high', stride=2
+        model, vv_arrs, vh_arrs, memory_strategy='high', stride=2, device=device
     )
 
     edge_buffer = 16
