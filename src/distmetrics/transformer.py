@@ -209,7 +209,7 @@ def control_flow_for_device(device: str | None = None) -> str:
     return device
 
 
-def load_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransformer:
+def load_transformer_model(model_token: str = 'latest', device: str | None = None) -> SpatioTemporalTransformer:
     if model_token not in ['latest', 'original']:
         raise ValueError('model_token must be latest or original')
     if model_token == 'latest':
@@ -218,7 +218,7 @@ def load_transformer_model(model_token: str = 'latest') -> SpatioTemporalTransfo
     else:
         config = transformer_config
         weights_path = TRANSFORMER_WEIGHTS_PATH_ORIGINAL
-    device = get_device()
+    device = control_flow_for_device(device)
     weights = torch.load(weights_path, map_location=device, weights_only=True)
     transformer = SpatioTemporalTransformer(config).to(device)
     transformer.load_state_dict(weights)

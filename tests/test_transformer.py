@@ -11,7 +11,7 @@ from tqdm import tqdm
 from distmetrics.transformer import (
     _transform_pre_arrs,
     estimate_normal_params_of_logits,
-    get_device,
+    control_flow_for_device,
     load_transformer_model,
 )
 
@@ -23,6 +23,7 @@ def estimate_normal_params_as_logits_explicit(
     pre_imgs_vh: list[np.ndarray],
     stride: int = 4,
     max_nodata_ratio: float = 0.1,
+    device: str | None = None,
 ) -> tuple[np.ndarray]:
     """
     Estimate the mean and sigma of the normal distribution of the logits of the input images.
@@ -40,7 +41,7 @@ def estimate_normal_params_as_logits_explicit(
     assert stride > 0
     assert (max_nodata_ratio < 1) and (max_nodata_ratio > 0)
 
-    device = get_device()
+    device = control_flow_for_device(device)
 
     # stack to T x 2 x H x W
     pre_imgs_stack = _transform_pre_arrs(pre_imgs_vv, pre_imgs_vh)
@@ -121,9 +122,9 @@ def test_logit_estimation(cropped_despeckled_data_dir: Path, device: str) -> Non
     vv_arrs = [open_arr(p) for p in vv_paths]
     vh_arrs = [open_arr(p) for p in vh_paths]
 
-    model = load_transformer_model()
+    model = load_transformer_model(device=device)
     pred_means_explicit, pred_sigmas_explicit = estimate_normal_params_as_logits_explicit(
-        model, vv_arrs, vh_arrs, stride=2
+        model, vv_arrs, vh_arrs, stride=2, device=device
     )
     pred_means_stream, pred_sigmas_stream = estimate_normal_params_of_logits(
         model, vv_arrs, vh_arrs, memory_strategy='low', stride=2, device=device
