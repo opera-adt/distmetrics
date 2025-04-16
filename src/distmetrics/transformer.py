@@ -209,7 +209,7 @@ def control_flow_for_device(device: str | None = None) -> str:
     return device
 
 
-def load_transformer_model(model_token: str = 'latest', device: str | None = None) -> SpatioTemporalTransformer:
+def load_transformer_model(model_token: str = 'latest', device: str | None = None, optimize: bool = False) -> SpatioTemporalTransformer:
     if model_token not in ['latest', 'original']:
         raise ValueError('model_token must be latest or original')
     if model_token == 'latest':
@@ -221,12 +221,20 @@ def load_transformer_model(model_token: str = 'latest', device: str | None = Non
     device = control_flow_for_device(device)
     weights = torch.load(weights_path, map_location=device, weights_only=True)
     transformer = SpatioTemporalTransformer(config).to(device)
-    transformer.load_state_dict(weights)
-    transformer = transformer.eval()
-    # TODO: Can this be reintroduced with any improvement to inference speed?
-    # Requires more sensitivity to environment.
-    # if device == 'cuda':
-    #     transformer = torch.compile(transformer)
+    transformer.load_state_dict(weights, map_location=device)
+
+    # TorchScript Just-In-Time (JIT) compilation
+    # Performs a set of optimization passes to optimize a model for inference
+    # This is still a prototype, and may have the potential to slow down your model.
+    # Primary use cases that have been targeted so far have been vision models on cpu
+    # and gpu to a lesser extent.
+    # References:
+    # https://pytorch.org/docs/stable/generated/torch.jit.optimize_for_inference.html
+    # https://residentmario.github.io/pytorch-training-performance-guide/jit.html
+    if optimize:
+        transformer = torch.jit.optimize_for_inference(torch.jit.script(transformer.eval()))
+    else:
+        transformer = transformer.eval()
     return transformer
 
 
@@ -304,21 +312,28 @@ def _estimate_logit_params_via_streamed_patches(
 
     unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
-    for patch_batch, slices in tqdm(
-        unfold_gen,
-        total=n_batches,
-        desc='Chips Traversed',
-        mininterval=2,
-        disable=(not tqdm_enabled),
-        dynamic_ncols=True,
-    ):
-        chip_mean, chip_logvar = model(patch_batch)
-        for k, (sy, sx) in enumerate(slices):
-            chip_mask = mask_spatial[sy, sx]
-            if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
-                pred_means[:, sy, sx] += chip_mean[k, ...]
-                pred_logvars[:, sy, sx] += chip_logvar[k, ...]
-                count[:, sy, sx] += 1
+    # Use torch Automatic Mixed Precision (AMP) to speed up inference if appropriate
+    # Note: this requires torch >= 1.12.0 and either an Nvidia GPU or an Intel Xeon CPU with native support for bfloat16
+    # AMP will automatically determine if the hardware supports bfloat16
+    # References:
+    # https://pytorch.org/docs/stable/amp.html
+    # https://pytorch.org/blog/empowering-pytorch-on-intel-xeon-scalable-processors-with-bfloat16/
+    with torch.autocast(device_type=device, dtype=torch.bfloat16):
+        for patch_batch, slices in tqdm(
+            unfold_gen,
+            total=n_batches,
+            desc='Chips Traversed',
+            mininterval=2,
+            disable=(not tqdm_enabled),
+            dynamic_ncols=True,
+        ):
+            chip_mean, chip_logvar = model(patch_batch)
+            for k, (sy, sx) in enumerate(slices):
+                chip_mask = mask_spatial[sy, sx]
+                if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
+                    pred_means[:, sy, sx] += chip_mean[k, ...]
+                    pred_logvars[:, sy, sx] += chip_logvar[k, ...]
+                    count[:, sy, sx] += 1
     pred_means /= count
     pred_logvars /= count
 
@@ -416,19 +431,26 @@ def _estimate_logit_params_via_folding(
     pred_means_p = torch.zeros(*target_chip_shape).to(device)
     pred_logvars_p = torch.zeros(*target_chip_shape).to(device)
 
-    for i in tqdm(
-        range(n_batches),
-        desc='Chips Traversed',
-        mininterval=2,
-        disable=(not tqdm_enabled),
-        dynamic_ncols=True,
-    ):
-        # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
-        batch_s = slice(batch_size * i, batch_size * (i + 1))
-        patch_batch = patches[batch_s, ...].view(-1, T, C, P, P)
-        chip_mean, chip_logvar = model(patch_batch)
-        pred_means_p[batch_s, ...] += chip_mean
-        pred_logvars_p[batch_s, ...] += chip_logvar
+    # Use torch Automatic Mixed Precision (AMP) to speed up inference if appropriate
+    # Note: this requires torch >= 1.12.0 and either an Nvidia GPU or an Intel Xeon CPU with native support for bfloat16
+    # AMP will automatically determine if the hardware supports bfloat16
+    # References:
+    # https://pytorch.org/docs/stable/amp.html
+    # https://pytorch.org/blog/empowering-pytorch-on-intel-xeon-scalable-processors-with-bfloat16/
+    with torch.autocast(device_type=device, dtype=torch.bfloat16):
+        for i in tqdm(
+            range(n_batches),
+            desc='Chips Traversed',
+            mininterval=2,
+            disable=(not tqdm_enabled),
+            dynamic_ncols=True,
+        ):
+            # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
+            batch_s = slice(batch_size * i, batch_size * (i + 1))
+            patch_batch = patches[batch_s, ...].view(-1, T, C, P, P)
+            chip_mean, chip_logvar = model(patch_batch)
+            pred_means_p[batch_s, ...] += chip_mean
+            pred_logvars_p[batch_s, ...] += chip_logvar
     del patches
     torch.cuda.empty_cache()
 
