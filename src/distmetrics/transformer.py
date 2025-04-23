@@ -2,6 +2,7 @@ import platform
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Union
+import math
 
 import einops
 import numpy as np
@@ -303,7 +304,7 @@ def _estimate_logit_params_via_streamed_patches(
     n_patches_x = int(np.floor((W - P) / stride) + 1)
     n_patches = n_patches_y * n_patches_x
 
-    n_batches = n_patches // batch_size + 1
+    n_batches = math.ceil(n_patches / batch_size)
 
     target_shape = (C, H, W)
     count = torch.zeros(*target_shape).to(device)
@@ -425,7 +426,7 @@ def _estimate_logit_params_via_folding(
     # n_patches x T x C x P**2
     patches = patches.view(n_patches, T, C, P**2)
 
-    n_batches = n_patches // batch_size + 1
+    n_batches = math.ceil(n_patches / batch_size)
 
     target_chip_shape = (n_patches, C, P, P)
     pred_means_p = torch.zeros(*target_chip_shape).to(device)
