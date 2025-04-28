@@ -313,28 +313,30 @@ def _estimate_logit_params_via_streamed_patches(
 
     unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
-    # Use torch Automatic Mixed Precision (AMP) to speed up inference if appropriate
-    # Note: this requires torch >= 1.12.0 and either an Nvidia GPU or an Intel Xeon CPU with native support for bfloat16
-    # AMP will automatically determine if the hardware supports bfloat16
-    # References:
-    # https://pytorch.org/docs/stable/amp.html
-    # https://pytorch.org/blog/empowering-pytorch-on-intel-xeon-scalable-processors-with-bfloat16/
-    with torch.autocast(device_type=device, dtype=torch.bfloat16):
-        for patch_batch, slices in tqdm(
-            unfold_gen,
-            total=n_batches,
-            desc='Chips Traversed',
-            mininterval=2,
-            disable=(not tqdm_enabled),
-            dynamic_ncols=True,
-        ):
-            chip_mean, chip_logvar = model(patch_batch)
-            for k, (sy, sx) in enumerate(slices):
-                chip_mask = mask_spatial[sy, sx]
-                if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
-                    pred_means[:, sy, sx] += chip_mean[k, ...]
-                    pred_logvars[:, sy, sx] += chip_logvar[k, ...]
-                    count[:, sy, sx] += 1
+    # Cast the model and input data to bfloat16 for computation
+    model = model.to(dtype=torch.bfloat16)
+
+    for patch_batch, slices in tqdm(
+        unfold_gen,
+        total=n_batches,
+        desc='Chips Traversed',
+        mininterval=2,
+        disable=(not tqdm_enabled),
+        dynamic_ncols=True,
+    ):
+        patch_batch = patch_batch.to(dtype=torch.bfloat16)
+        chip_mean, chip_logvar = model(patch_batch)
+
+        # Convert outputs back to float32 for storage
+        chip_mean = chip_mean.to(dtype=torch.float32)
+        chip_logvar = chip_logvar.to(dtype=torch.float32)
+
+        for k, (sy, sx) in enumerate(slices):
+            chip_mask = mask_spatial[sy, sx]
+            if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
+                pred_means[:, sy, sx] += chip_mean[k, ...]
+                pred_logvars[:, sy, sx] += chip_logvar[k, ...]
+                count[:, sy, sx] += 1
     pred_means /= count
     pred_logvars /= count
 
@@ -432,26 +434,25 @@ def _estimate_logit_params_via_folding(
     pred_means_p = torch.zeros(*target_chip_shape).to(device)
     pred_logvars_p = torch.zeros(*target_chip_shape).to(device)
 
-    # Use torch Automatic Mixed Precision (AMP) to speed up inference if appropriate
-    # Note: this requires torch >= 1.12.0 and either an Nvidia GPU or an Intel Xeon CPU with native support for bfloat16
-    # AMP will automatically determine if the hardware supports bfloat16
-    # References:
-    # https://pytorch.org/docs/stable/amp.html
-    # https://pytorch.org/blog/empowering-pytorch-on-intel-xeon-scalable-processors-with-bfloat16/
-    with torch.autocast(device_type=device, dtype=torch.bfloat16):
-        for i in tqdm(
-            range(n_batches),
-            desc='Chips Traversed',
-            mininterval=2,
-            disable=(not tqdm_enabled),
-            dynamic_ncols=True,
-        ):
-            # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
-            batch_s = slice(batch_size * i, batch_size * (i + 1))
-            patch_batch = patches[batch_s, ...].view(-1, T, C, P, P)
-            chip_mean, chip_logvar = model(patch_batch)
-            pred_means_p[batch_s, ...] += chip_mean
-            pred_logvars_p[batch_s, ...] += chip_logvar
+    # Cast the model and input data to bfloat16 for computation
+    model = model.to(dtype=torch.bfloat16)
+    patches = patches.to(dtype=torch.bfloat16)
+
+    for i in tqdm(
+        range(n_batches),
+        desc='Chips Traversed',
+        mininterval=2,
+        disable=(not tqdm_enabled),
+        dynamic_ncols=True,
+    ):
+        # Change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
+        batch_s = slice(batch_size * i, batch_size * (i + 1))
+        patch_batch = patches[batch_s, ...].view(-1, T, C, P, P)
+        chip_mean, chip_logvar = model(patch_batch)
+
+        # Convert outputs back to float32 for storage
+        pred_means_p[batch_s, ...] += chip_mean.to(dtype=torch.float32)
+        pred_logvars_p[batch_s, ...] += chip_logvar.to(dtype=torch.float32)
     del patches
     torch.cuda.empty_cache()
 
