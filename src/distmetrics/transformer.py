@@ -29,6 +29,9 @@ TRANSFORMER_WEIGHTS_PATH_ORIGINAL = MODEL_DATA / 'transformer.pth'
 DEV_DTYPE = torch.bfloat16 if os.environ.get("DEV_DTYPE", 'float32') == 'bfloat16' else torch.float32
 WITH_CUDA = True if os.environ.get("WITH_CUDA", 'false') == 'true' else False
 
+REUSE_MODEL = True if os.environ.get("REUSE_MODEL", 'false') == 'true' else False
+_MODEL = None
+
 
 def unfolding_stream(
     image_st: torch.Tensor, kernel_size: int, stride: int, batch_size: int
@@ -218,6 +221,8 @@ def control_flow_for_device(device: str | None = None) -> str:
 
 
 def load_transformer_model(model_token: str = 'latest', device: str | None = None, comp_dims: int | None = (4, 10, 2, 16, 16)) -> SpatioTemporalTransformer:
+    global _MODEL
+
     if model_token not in ['latest', 'original']:
         raise ValueError('model_token must be latest or original')
     if model_token == 'latest':
@@ -234,13 +239,13 @@ def load_transformer_model(model_token: str = 'latest', device: str | None = Non
 
     allow_ops_in_compiled_graph()
 
+    if REUSE_MODEL and _MODEL is not None:
+        return _MODEL
+
     if device == 'cuda' and WITH_CUDA:
         import torch_tensorrt
         # We can compile the model with specific dimentions, to make it faster.
-        # transformer = torch_tensorrt.compile(transformer, inputs=[torch_tensorrt.Input(comp_dims)])
-        # transformer = torch_tensorrt.compile(transformer)
-        # transformer = torch.compile(transformer, backend="tensorrt")
-        trt_model = torch_tensorrt.compile(transformer,
+        transformer = torch_tensorrt.compile(transformer,
             inputs=[
                 torch_tensorrt.Input(comp_dims, dtype=DEV_DTYPE)
             ],
@@ -248,6 +253,10 @@ def load_transformer_model(model_token: str = 'latest', device: str | None = Non
         )
     else:
         transformer = torch.compile(transformer)
+
+    if REUSE_MODEL:
+        _MODEL = transformer
+
     return transformer
 
 
