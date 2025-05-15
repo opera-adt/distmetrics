@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from pydantic import BaseModel, ConfigDict, model_validator
 from scipy.special import logit
 from tqdm.auto import tqdm
+import json
 
 from distmetrics.mahalanobis import _transform_pre_arrs
 from distmetrics.model_data.transformer_config import transformer_config, transformer_latest_config
@@ -209,15 +210,22 @@ def control_flow_for_device(device: str | None = None) -> str:
     return device
 
 
-def load_transformer_model(model_token: str = 'latest', device: str | None = None) -> SpatioTemporalTransformer:
-    if model_token not in ['latest', 'original']:
-        raise ValueError('model_token must be latest or original')
+def load_transformer_model(model_token: str = 'latest',
+  model_cfg_path: Path | None = None,
+  model_wts_path: Path | None = None,
+  device: str | None = None) -> SpatioTemporalTransformer:
+    if model_token not in ['latest', 'original', 'external']:
+        raise ValueError('model_token must be one of latest, original, or external')
     if model_token == 'latest':
         config = transformer_latest_config
         weights_path = TRANSFORMER_WEIGHTS_PATH_LATEST
-    else:
+    elif model_token == 'original':
         config = transformer_config
         weights_path = TRANSFORMER_WEIGHTS_PATH_ORIGINAL
+    else:
+       with open(model_cfg_path) as cfg:
+         config = json.load(cfg)
+       weights_path = model_wts_path
     device = control_flow_for_device(device)
     weights = torch.load(weights_path, map_location=device, weights_only=True)
     transformer = SpatioTemporalTransformer(config).to(device)
