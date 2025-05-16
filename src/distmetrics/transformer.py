@@ -214,7 +214,7 @@ def load_transformer_model(
     model_token: str = 'latest',
     model_cfg_path: Path | None = None,
     model_wts_path: Path | None = None,
-    device: str | None = None
+    device: str | None = None,
 ) -> SpatioTemporalTransformer:
     if model_token not in ['latest', 'original', 'external']:
         raise ValueError('model_token must be one of latest, original, or external')
@@ -225,9 +225,9 @@ def load_transformer_model(
         config = transformer_config
         weights_path = TRANSFORMER_WEIGHTS_PATH_ORIGINAL
     else:
-       with Path.open(model_cfg_path) as cfg:
-           config = json.load(cfg)
-       weights_path = model_wts_path
+        with Path.open(model_cfg_path) as cfg:
+            config = json.load(cfg)
+        weights_path = model_wts_path
     device = control_flow_for_device(device)
     weights = torch.load(weights_path, map_location=device, weights_only=True)
     transformer = SpatioTemporalTransformer(config).to(device)
