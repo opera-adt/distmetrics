@@ -1,14 +1,17 @@
+import os
 import platform
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Union
 
+import math
 import einops
 import numpy as np
 import torch
 import torch.mps
 import torch.nn as nn
 import torch.nn.functional as F
+from einops._torch_specific import allow_ops_in_compiled_graph
 from pydantic import BaseModel, ConfigDict, model_validator
 from scipy.special import logit
 from tqdm.auto import tqdm
@@ -21,6 +24,15 @@ MODEL_DATA = Path(__file__).parent.resolve() / 'model_data'
 TRANSFORMER_WEIGHTS_PATH_LATEST = MODEL_DATA / 'transformer_latest.pth'
 TRANSFORMER_WEIGHTS_PATH_ORIGINAL = MODEL_DATA / 'transformer.pth'
 
+# Dtype selection
+_DTYPE_MAP = {
+    "float32": torch.float32,
+    "float": torch.float32,
+    "bfloat16": torch.bfloat16,
+}
+DEV_DTYPE = _DTYPE_MAP.get(os.environ.get("DEV_DTYPE", "float32").lower(), torch.float32)
+
+_MODEL = None
 
 def unfolding_stream(
     image_st: torch.Tensor, kernel_size: int, stride: int, batch_size: int
@@ -209,7 +221,17 @@ def control_flow_for_device(device: str | None = None) -> str:
     return device
 
 
-def load_transformer_model(model_token: str = 'latest', device: str | None = None) -> SpatioTemporalTransformer:
+def load_transformer_model(
+        model_token: str = 'latest', 
+        device: str | None = None, 
+        optimize: bool = False, 
+        batch_size: int = 32
+    ) -> SpatioTemporalTransformer:
+    global _MODEL
+    
+    if _MODEL is not None:
+        return _MODEL
+
     if model_token not in ['latest', 'original']:
         raise ValueError('model_token must be latest or original')
     if model_token == 'latest':
@@ -223,14 +245,38 @@ def load_transformer_model(model_token: str = 'latest', device: str | None = Non
     transformer = SpatioTemporalTransformer(config).to(device)
     transformer.load_state_dict(weights)
     transformer = transformer.eval()
-    # TODO: Can this be reintroduced with any improvement to inference speed?
-    # Requires more sensitivity to environment.
-    # if device == 'cuda':
-    #     transformer = torch.compile(transformer)
+
+    if optimize:
+        allow_ops_in_compiled_graph()
+
+        if device == "cuda":
+            import torch_tensorrt
+
+            expected_dims = (batch_size, 10, 2, 16, 16)
+
+            transformer = torch_tensorrt.compile(
+            transformer,
+            inputs=[
+                torch_tensorrt.Input(
+                    min_shape=(1,) + expected_dims[1:],
+                    opt_shape=expected_dims,
+                    max_shape=expected_dims,
+                    dtype=DEV_DTYPE
+                )
+            ],
+            enabled_precisions={DEV_DTYPE},  # e.g., {torch.float}, {torch.float16}
+            truncate_long_and_double=True  # Optional: helps prevent type issues
+            )
+            
+        else:
+            transformer = torch.compile(transformer, mode="max-autotune-no-cudagraphs", dynamic=False)
+    
+    _MODEL = transformer
+    
     return transformer
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def _estimate_logit_params_via_streamed_patches(
     model: torch.nn.Module,
     imgs_copol: list[np.ndarray],
@@ -279,13 +325,13 @@ def _estimate_logit_params_via_streamed_patches(
     # Mask
     mask_stack = np.isnan(pre_imgs_stack)
     # Remove T x 2 dims
-    mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1)))
+    mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1))).to(device, dtype=DEV_DTYPE)
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
     # Logit transformation
     pre_imgs_stack[mask_stack] = 1e-7
     pre_imgs_logit = logit(pre_imgs_stack)
-    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device)
+    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device, dtype=DEV_DTYPE)
 
     # C x H x W
     C, H, W = pre_imgs_logit.shape[-3:]
@@ -295,12 +341,12 @@ def _estimate_logit_params_via_streamed_patches(
     n_patches_x = int(np.floor((W - P) / stride) + 1)
     n_patches = n_patches_y * n_patches_x
 
-    n_batches = n_patches // batch_size + 1
+    n_batches = math.ceil(n_patches / batch_size)
 
     target_shape = (C, H, W)
-    count = torch.zeros(*target_shape).to(device)
-    pred_means = torch.zeros(*target_shape).to(device)
-    pred_logvars = torch.zeros(*target_shape).to(device)
+    count = torch.zeros(*target_shape).to(device, dtype=DEV_DTYPE)
+    pred_means = torch.zeros(*target_shape).to(device, dtype=DEV_DTYPE)
+    pred_logvars = torch.zeros(*target_shape).to(device, dtype=DEV_DTYPE)
 
     unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
 
@@ -312,6 +358,7 @@ def _estimate_logit_params_via_streamed_patches(
         disable=(not tqdm_enabled),
         dynamic_ncols=True,
     ):
+        patch_batch = patch_batch.to(device, dtype=DEV_DTYPE)
         chip_mean, chip_logvar = model(patch_batch)
         for k, (sy, sx) in enumerate(slices):
             chip_mask = mask_spatial[sy, sx]
@@ -332,7 +379,7 @@ def _estimate_logit_params_via_streamed_patches(
     return pred_means, pred_sigmas
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def _estimate_logit_params_via_folding(
     model: torch.nn.Module,
     imgs_copol: list[np.ndarray],
@@ -402,19 +449,19 @@ def _estimate_logit_params_via_folding(
     n_patches = n_patches_y * n_patches_x
 
     # Shape (T x 2 x H x W)
-    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit)
+    pre_imgs_stack_t = torch.from_numpy(pre_imgs_logit).to(device, dtype=DEV_DTYPE)
     # T x (2 * P**2) x n_patches
     patches = F.unfold(pre_imgs_stack_t, kernel_size=P, stride=stride)
     # n_patches x T x (C * P**2)
-    patches = patches.permute(2, 0, 1).to(device)
+    patches = patches.permute(2, 0, 1).to(device, dtype=DEV_DTYPE)
     # n_patches x T x C x P**2
     patches = patches.view(n_patches, T, C, P**2)
 
-    n_batches = n_patches // batch_size + 1
+    n_batches = math.ceil(n_patches / batch_size)
 
     target_chip_shape = (n_patches, C, P, P)
-    pred_means_p = torch.zeros(*target_chip_shape).to(device)
-    pred_logvars_p = torch.zeros(*target_chip_shape).to(device)
+    pred_means_p = torch.zeros(*target_chip_shape).to(device, dtype=DEV_DTYPE)
+    pred_logvars_p = torch.zeros(*target_chip_shape).to(device, dtype=DEV_DTYPE)
 
     for i in tqdm(
         range(n_batches),
@@ -441,7 +488,7 @@ def _estimate_logit_params_via_folding(
     pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
     del pred_means_p_reshaped
 
-    input_ones = torch.ones(1, H, W, dtype=torch.float32).to(device)
+    input_ones = torch.ones(1, H, W).to(device, dtype=DEV_DTYPE)
     count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
     count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
     del count_patches
