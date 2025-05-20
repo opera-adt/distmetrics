@@ -18,12 +18,13 @@ from tqdm.auto import tqdm
 
 
 from distmetrics.mahalanobis import _transform_pre_arrs
-from distmetrics.model_data.transformer_config import transformer_config, transformer_latest_config
+from distmetrics.model_data.transformer_config import transformer_config, transformer_latest_config, transformer_smaller_config
 
 
 MODEL_DATA = Path(__file__).parent.resolve() / 'model_data'
 TRANSFORMER_WEIGHTS_PATH_LATEST = MODEL_DATA / 'transformer_latest.pth'
 TRANSFORMER_WEIGHTS_PATH_ORIGINAL = MODEL_DATA / 'transformer.pth'
+TRANSFORMER_WEIGHTS_PATH_SMALLER = MODEL_DATA / 'transformer_smaller.pth'
 
 # Experimental
 DEV_DTYPE = torch.bfloat16 if os.environ.get("DEV_DTYPE", 'float32') == 'bfloat16' else torch.float32
@@ -220,14 +221,21 @@ def control_flow_for_device(device: str | None = None) -> str:
     return device
 
 
-def load_transformer_model(model_token: str = 'latest', device: str | None = None, comp_dims: int | None = (4, 10, 2, 16, 16)) -> SpatioTemporalTransformer:
+def load_transformer_model(model_token: str = 'latest', device: str | None = None, comp_dims: int | None = (100, 10, 2, 16, 16)) -> SpatioTemporalTransformer:
     global _MODEL
 
-    if model_token not in ['latest', 'original']:
+    if REUSE_MODEL and _MODEL is not None:
+        print("Returning saved model")
+        return _MODEL
+    
+    if model_token not in ['latest', 'original', 'smaller']:
         raise ValueError('model_token must be latest or original')
     if model_token == 'latest':
         config = transformer_latest_config
         weights_path = TRANSFORMER_WEIGHTS_PATH_LATEST
+    elif model_token == 'smaller':
+        config = transformer_smaller_config
+        weights_path = TRANSFORMER_WEIGHTS_PATH_SMALLER
     else:
         config = transformer_config
         weights_path = TRANSFORMER_WEIGHTS_PATH_ORIGINAL
@@ -239,22 +247,39 @@ def load_transformer_model(model_token: str = 'latest', device: str | None = Non
 
     allow_ops_in_compiled_graph()
 
-    if REUSE_MODEL and _MODEL is not None:
-        return _MODEL
-
+    print(f"Device: {device} {WITH_CUDA}")
     if device == 'cuda' and WITH_CUDA:
         import torch_tensorrt
         # We can compile the model with specific dimentions, to make it faster.
-        transformer = torch_tensorrt.compile(transformer,
+        # transformer = torch_tensorrt.compile(transformer,
+        #     inputs=[
+        #         torch_tensorrt.Input(comp_dims, dtype=DEV_DTYPE)
+        #     ],
+        #     # enabled_precisions={DEV_DTYPE},  # or {torch.float16} or {torch.bfloat16} if supported
+        # )
+
+        # Create TensorRT-optimized model
+        transformer = torch_tensorrt.compile(
+            transformer,
             inputs=[
-                torch_tensorrt.Input(comp_dims, dtype=DEV_DTYPE)
+                torch_tensorrt.Input(
+                    min_shape=(1,) + comp_dims[1:],
+                    opt_shape=comp_dims,
+                    # max_shape=(128,) + comp_dims[1:],
+                    max_shape=comp_dims,
+                    dtype=DEV_DTYPE
+                )
             ],
-            # enabled_precisions={DEV_DTYPE},  # or {torch.float16} or {torch.bfloat16} if supported
+            enabled_precisions={DEV_DTYPE},  # e.g., {torch.float}, {torch.float16}
+            truncate_long_and_double=True  # Optional: helps prevent type issues
         )
+        print("Compiled for GPU")
     else:
-        transformer = torch.compile(transformer)
+        transformer = torch.compile(transformer, mode="max-autotune")
+        print("Compiled for CPU")
 
     if REUSE_MODEL:
+        print("Caching model _MODEL")
         _MODEL = transformer
 
     return transformer
@@ -502,7 +527,7 @@ def estimate_normal_params_of_logits(
     imgs_copol: list[np.ndarray],
     imgs_crosspol: list[np.ndarray],
     stride: int = 2,
-    batch_size: int = 32,
+    batch_size: int = 48,
     tqdm_enabled: bool = True,
     memory_strategy: str = 'high',
     device: str | None = None,
@@ -510,6 +535,7 @@ def estimate_normal_params_of_logits(
     if memory_strategy not in ['high', 'low']:
         raise ValueError('memory strategy must be high or low')
 
+    print("batch_size = ", batch_size)
     estimate_logits = (
         _estimate_logit_params_via_folding if memory_strategy == 'high' else _estimate_logit_params_via_streamed_patches
     )
