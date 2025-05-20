@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.14] - 2025-03-20
+
+### Added
+* Added optional compilation for `CPU` via `torch.compile` and `GPU` via `torch_tensorrt.compile`.
+
+### Fixed
+* Fixed order of tensor operations and moving data to 'device' to reduce overhead.
+
 ## [0.0.13] - 2025-05-15
 
 ### Added
