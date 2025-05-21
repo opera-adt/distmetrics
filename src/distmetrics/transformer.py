@@ -261,7 +261,11 @@ def load_transformer_model(
         if device == "cuda":
             import torch_tensorrt
 
-            expected_dims = (batch_size, 10, 2, 16, 16)
+            # Get dimensions
+            total_pixels = transformer.num_patches * (transformer.patch_size ** 2)
+            wh = math.isqrt(total_pixels)
+            channels = transformer.data_dim // (transformer.patch_size ** 2)
+            expected_dims = (batch_size, transformer.max_seq_len, channels, wh, wh)
 
             transformer = torch_tensorrt.compile(
             transformer,
