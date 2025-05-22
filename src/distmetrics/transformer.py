@@ -338,7 +338,7 @@ def _estimate_logit_params_via_streamed_patches(
     # Mask
     mask_stack = np.isnan(pre_imgs_stack)
     # Remove T x 2 dims
-    mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1))).to(device, dtype=DEV_DTYPE)
+    mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1))).to(device)
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
     # Logit transformation
@@ -444,7 +444,7 @@ def _estimate_logit_params_via_folding(
     # Mask
     mask_stack = np.isnan(pre_imgs_stack)
     # Remove T x 2 dims
-    mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1)))
+    mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1))).to(device)
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
     # Logit transformation
