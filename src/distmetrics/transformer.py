@@ -227,9 +227,9 @@ def load_transformer_model(
     model_token: str = 'latest',
     model_cfg_path: Path | None = None,
     model_wts_path: Path | None = None,
-    device: str | None = None, 
-    optimize: bool = False, 
-    batch_size: int = 32
+    device: str | None = None,
+    optimize: bool = False,
+    batch_size: int = 32,
 ) -> SpatioTemporalTransformer:
     global _MODEL
 
@@ -275,18 +275,18 @@ def load_transformer_model(
                         min_shape=(1,) + expected_dims[1:],
                         opt_shape=expected_dims,
                         max_shape=expected_dims,
-                        dtype=DEV_DTYPE
+                        dtype=DEV_DTYPE,
                     )
                 ],
                 enabled_precisions={DEV_DTYPE},  # e.g., {torch.float}, {torch.float16}
-                truncate_long_and_double=True  # Optional: helps prevent type issues
+                truncate_long_and_double=True,  # Optional: helps prevent type issues
             )
-            
+
         else:
             transformer = torch.compile(transformer, mode='max-autotune-no-cudagraphs', dynamic=False)
-    
+
     _MODEL = transformer
-    
+
     return transformer
 
 
