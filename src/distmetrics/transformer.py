@@ -27,13 +27,14 @@ TRANSFORMER_WEIGHTS_PATH_ORIGINAL = MODEL_DATA / 'transformer.pth'
 
 # Dtype selection
 _DTYPE_MAP = {
-    "float32": torch.float32,
-    "float": torch.float32,
-    "bfloat16": torch.bfloat16,
+    'float32': torch.float32,
+    'float': torch.float32,
+    'bfloat16': torch.bfloat16,
 }
-DEV_DTYPE = _DTYPE_MAP.get(os.environ.get("DEV_DTYPE", "float32").lower(), torch.float32)
+DEV_DTYPE = _DTYPE_MAP.get(os.environ.get('DEV_DTYPE', 'float32').lower(), torch.float32)
 
 _MODEL = None
+
 
 def unfolding_stream(
     image_st: torch.Tensor, kernel_size: int, stride: int, batch_size: int
@@ -223,15 +224,15 @@ def control_flow_for_device(device: str | None = None) -> str:
 
 
 def load_transformer_model(
-        model_token: str = 'latest',
-        model_cfg_path: Path | None = None,
-        model_wts_path: Path | None = None,
-        device: str | None = None, 
-        optimize: bool = False, 
-        batch_size: int = 32
-    ) -> SpatioTemporalTransformer:
+    model_token: str = 'latest',
+    model_cfg_path: Path | None = None,
+    model_wts_path: Path | None = None,
+    device: str | None = None, 
+    optimize: bool = False, 
+    batch_size: int = 32
+) -> SpatioTemporalTransformer:
     global _MODEL
-    
+
     if _MODEL is not None:
         return _MODEL
 
@@ -258,31 +259,31 @@ def load_transformer_model(
     if optimize:
         allow_ops_in_compiled_graph()
 
-        if device == "cuda":
+        if device == 'cuda':
             import torch_tensorrt
 
             # Get dimensions
-            total_pixels = transformer.num_patches * (transformer.patch_size ** 2)
+            total_pixels = transformer.num_patches * (transformer.patch_size**2)
             wh = math.isqrt(total_pixels)
-            channels = transformer.data_dim // (transformer.patch_size ** 2)
+            channels = transformer.data_dim // (transformer.patch_size**2)
             expected_dims = (batch_size, transformer.max_seq_len, channels, wh, wh)
 
             transformer = torch_tensorrt.compile(
-            transformer,
-            inputs=[
-                torch_tensorrt.Input(
-                    min_shape=(1,) + expected_dims[1:],
-                    opt_shape=expected_dims,
-                    max_shape=expected_dims,
-                    dtype=DEV_DTYPE
-                )
-            ],
-            enabled_precisions={DEV_DTYPE},  # e.g., {torch.float}, {torch.float16}
-            truncate_long_and_double=True  # Optional: helps prevent type issues
+                transformer,
+                inputs=[
+                    torch_tensorrt.Input(
+                        min_shape=(1,) + expected_dims[1:],
+                        opt_shape=expected_dims,
+                        max_shape=expected_dims,
+                        dtype=DEV_DTYPE
+                    )
+                ],
+                enabled_precisions={DEV_DTYPE},  # e.g., {torch.float}, {torch.float16}
+                truncate_long_and_double=True  # Optional: helps prevent type issues
             )
             
         else:
-            transformer = torch.compile(transformer, mode="max-autotune-no-cudagraphs", dynamic=False)
+            transformer = torch.compile(transformer, mode='max-autotune-no-cudagraphs', dynamic=False)
     
     _MODEL = transformer
     
