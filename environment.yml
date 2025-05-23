@@ -4,6 +4,7 @@ dependencies:
  - asf_search
  - astropy
  - backoff
+ - compilers
  - dem_stitcher
  - einops
  - flake8
