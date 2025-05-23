@@ -1,9 +1,13 @@
 name: distmetrics
+channels:
+  - conda-forge
+channel_priority: strict
 dependencies:
  - python>=3.12
  - asf_search
  - astropy
  - backoff
+ - compilers
  - dem_stitcher
  - einops
  - flake8
@@ -19,7 +23,6 @@ dependencies:
  - pydantic
  - pytest
  - pytest-cov
- - pytorch
  - rasterio>=1.4.3
  - requests
  - ruff
@@ -31,3 +34,9 @@ dependencies:
  - tqdm
  - pip
  - cudatoolkit>=11.8
+ - pip:
+   - torch 
+   - torchvision 
+   - torchaudio
+   - torch-tensorrt
+   - nvidia-modelopt[all]
