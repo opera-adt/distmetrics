@@ -1,0 +1,12 @@
+{
+  "patch_size": 4,
+  "input_size": 16,
+  "data_dim": 32,
+  "d_model": 256,
+  "nhead": 16,
+  "num_encoder_layers": 2,
+  "dim_feedforward": 384,
+  "max_seq_len": 10,
+  "dropout": 0.2,
+  "activation": "relu"
+} 

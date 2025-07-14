@@ -8,7 +8,7 @@ from numpy.testing import assert_allclose
 from scipy.special import logit
 from tqdm import tqdm
 
-from distmetrics.transformer import (
+from distmetrics.tf_metric import (
     _transform_pre_arrs,
     control_flow_for_device,
     estimate_normal_params_of_logits,

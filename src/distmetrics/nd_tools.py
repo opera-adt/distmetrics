@@ -1,6 +1,79 @@
 import numpy as np
-from scipy.ndimage import binary_dilation, distance_transform_edt
+import scipy.ndimage as nd
+from scipy.ndimage import binary_dilation, convolve, distance_transform_edt
 from scipy.ndimage import label as labeler
+
+
+def nn_interpolate(arr: np.ndarray, preserve_exterior_mask: bool = True) -> np.ndarray:
+    """Interpolate nan values in a 2D array using nearest neighbor interpolation.
+
+    Parameters
+    ----------
+        data (array): A 2D array containing the data to fill.  Void elements
+            should have values of np.nan.
+
+    Returns
+    -------
+        filled (array): The filled data.
+
+    """
+    arr_filled = arr.copy()
+    ind = nd.distance_transform_edt(np.isnan(arr_filled), return_distances=False, return_indices=True)
+    arr_filled = arr_filled[tuple(ind)]
+    if preserve_exterior_mask:
+        print('preserving exterior mask')
+
+        print(np.sum(np.isnan(arr)))
+        exterior_mask = get_exterior_nodata_mask(arr)
+        arr_filled[exterior_mask.astype(bool)] = np.nan
+    return arr_filled
+
+
+def iterative_linear_interpolate(
+    arr: np.ndarray, max_iter: int = 10, preserve_exterior_mask: bool = True
+) -> np.ndarray:
+    """Interpolate nan values in a 2D array via iterative (convolutional) linear interpolation.
+
+    Parameters
+    ----------
+        arr (array): A 2D array containing the data to fill.  Void elements
+            should have values of np.nan.
+
+    Returns
+    -------
+        filled (array): The filled data.
+    """
+    arr_filled = arr.copy()
+    nan_mask = np.isnan(arr)
+
+    kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=float)
+
+    for _ in range(max_iter):
+        if not np.any(nan_mask):
+            break
+
+        # Set NaNs to zero temporarily
+        temp = np.where(nan_mask, 0, arr_filled)
+
+        # Count valid neighbors
+        valid = (~nan_mask).astype(float)
+        weight = convolve(valid, kernel, mode='constant', cval=0)
+        smoothed = convolve(temp, kernel, mode='constant', cval=0)
+
+        # Avoid division by zero
+        with np.errstate(invalid='ignore'):
+            interp_values = smoothed / weight
+
+        # Fill only the nan locations
+        updates = (nan_mask) & (weight > 0)
+        arr_filled[updates] = interp_values[updates]
+        nan_mask = np.isnan(arr_filled)
+
+    if preserve_exterior_mask:
+        exterior_mask = get_exterior_nodata_mask(arr)
+        arr_filled[exterior_mask.astype(bool)] = np.nan
+
+    return arr_filled
 
 
 def get_exterior_nodata_mask(image: np.ndarray, nodata_val: float | int = np.nan) -> np.ndarray:
