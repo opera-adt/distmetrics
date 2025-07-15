@@ -1,4 +1,3 @@
-import concurrent.futures
 import multiprocessing as mp
 from functools import partial
 
@@ -78,19 +77,43 @@ def despeckle_one_rtc_arr_with_tv(
     return X_dspkl
 
 
+def _despeckle_worker(args: tuple[np.ndarray, dict]) -> np.ndarray:
+    """Worker function for multiprocessing that unpacks arguments and calls despeckle_one_rtc_arr_with_tv."""
+    arr, kwargs = args
+    return despeckle_one_rtc_arr_with_tv(arr, **kwargs)
+
+
 def despeckle_rtc_arrs_with_tv(
     arrs: list[np.ndarray],
     reg_param: float = 5,
-    noise_floor_db: float = -22,
+    max_valid_value: float = 1.0,
+    min_valid_value: float = 1e-7,
+    interp_method: str = 'none',
+    preserve_exterior_mask: bool = True,
+    n_iter_bilinear: int = 10,
+    fill_value: float | None = None,
     n_jobs: int = 10,
     tqdm_enabled: bool = True,
 ) -> list[np.ndarray]:
-    with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as executor:
+    # Prepare arguments for each array
+    kwargs = {
+        'reg_param': reg_param,
+        'max_valid_value': max_valid_value,
+        'min_valid_value': min_valid_value,
+        'interp_method': interp_method,
+        'preserve_exterior_mask': preserve_exterior_mask,
+        'n_iter_bilinear': n_iter_bilinear,
+        'fill_value': fill_value,
+    }
+
+    # Create argument tuples for multiprocessing
+    args_list = [(arr, kwargs) for arr in arrs]
+
+    # Use multiprocessing Pool
+    with mp.Pool(processes=n_jobs) as pool:
         results = list(
             tqdm(
-                executor.map(
-                    despeckle_one_rtc_arr_with_tv, arrs, [reg_param] * len(arrs), [noise_floor_db] * len(arrs)
-                ),
+                pool.imap(_despeckle_worker, args_list),
                 total=len(arrs),
                 desc='Despeckling',
                 dynamic_ncols=True,

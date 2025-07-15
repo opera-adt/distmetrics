@@ -76,6 +76,8 @@ class SpatioTemporalTransformer(nn.Module):
     def forward(self, img_baseline: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         batch_size, seq_len, channels, height, width = img_baseline.shape
 
+        if seq_len > self.max_seq_len:
+            raise ValueError(f'seq_len must be less than or equal to max_seq_len, got {seq_len} and {self.max_seq_len}')
         assert self.num_patches == (height * width) / (self.patch_size**2)
 
         img_baseline = einops.rearrange(

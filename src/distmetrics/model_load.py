@@ -19,15 +19,12 @@ TORCH_DTYPE_MAP = {
     'bfloat16': torch.bfloat16,
 }
 
-_ALLOWED_MODELS = {
+ALLOWED_MODELS = [
     'transformer_original',
     'transformer_optimized',
     'transformer_optimized_fine',
     'transformer_anniversary_trained',
-}
-
-
-_MODEL = None
+]
 
 
 def load_library_model(model_name: str) -> tuple[dict, Path]:
@@ -52,8 +49,8 @@ def load_library_model(model_name: str) -> tuple[dict, Path]:
     ValueError
         If model_name is not one of the allowed values or if files don't exist
     """
-    if model_name not in _ALLOWED_MODELS:
-        raise ValueError(f'Model name must be one of: {", ".join(_ALLOWED_MODELS)}, got {model_name}')
+    if model_name not in ALLOWED_MODELS:
+        raise ValueError(f'Model name must be one of: {", ".join(ALLOWED_MODELS)}, got {model_name}')
 
     model_dir = MODEL_DATA / model_name
     config_path = model_dir / 'config.json'
@@ -100,21 +97,16 @@ def load_transformer_model(
     batch_size: int = 32,
     dtype: str = 'float32',
 ) -> torch.nn.Module:
-    global _MODEL
-
-    if _MODEL is not None:
-        return _MODEL
-
-    if lib_model_token not in ['external'] + list(_ALLOWED_MODELS):
+    if lib_model_token not in ['external'] + list(ALLOWED_MODELS):
         raise ValueError(
-            f'model_token must be one of {", ".join(["external"] + list(_ALLOWED_MODELS))}, got {lib_model_token}'
+            f'model_token must be one of {", ".join(["external"] + list(ALLOWED_MODELS))}, got {lib_model_token}'
         )
 
-    if lib_model_token in _ALLOWED_MODELS:
-        config, weights_path = load_library_model(lib_model_token)
+    if lib_model_token in ALLOWED_MODELS:
+        model_config, weights_path = load_library_model(lib_model_token)
     else:
         with Path.open(model_cfg_path) as cfg:
-            config = json.load(cfg)
+            model_config = json.load(cfg)
         weights_path = model_wts_path
 
     if dtype not in TORCH_DTYPE_MAP.keys():
@@ -122,8 +114,15 @@ def load_transformer_model(
     torch_dtype = TORCH_DTYPE_MAP[dtype]
 
     device = control_flow_for_device(device)
-    weights = torch.load(weights_path, map_location=device, weights_only=True)
-    transformer = SpatioTemporalTransformer(config).to(device)
+    checkpoint = torch.load(weights_path, map_location=device)
+
+    # Handle both full checkpoints and direct state dicts
+    if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+        weights = checkpoint['model_state_dict']
+    else:
+        weights = checkpoint
+
+    transformer = SpatioTemporalTransformer(**model_config).to(device)
     transformer.load_state_dict(weights)
     transformer = transformer.eval()
 
@@ -155,7 +154,5 @@ def load_transformer_model(
 
         else:
             transformer = torch.compile(transformer, mode='max-autotune-no-cudagraphs', dynamic=False)
-
-    _MODEL = transformer
 
     return transformer
