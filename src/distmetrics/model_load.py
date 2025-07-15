@@ -90,23 +90,64 @@ def control_flow_for_device(device: str | None = None) -> str:
 
 def load_transformer_model(
     lib_model_token: str = 'transformer_original',
-    model_cfg_path: Path | None = None,
-    model_wts_path: Path | None = None,
+    model_cfg_path: Path | str | dict | None = None,
+    model_wts_path: Path | str | dict | None = None,
     device: str | None = None,
     model_compilation: bool = False,
     batch_size: int = 32,
     dtype: str = 'float32',
 ) -> torch.nn.Module:
+    """Load a transformer model from a library or a custom model.
+
+    Parameters
+    ----------
+    lib_model_token : str, optional
+        Name of model directory within model_data/. Must be one of:
+        - transformer_original
+        - transformer_optimized
+        - transformer_optimized_fine
+        - transformer_anniversary_trained
+    model_cfg_path : Path | str | dict | None, optional
+        Path to model config file or dictionary with config parameters. If None, model is loaded from library.
+    model_wts_path : Path | str | dict | None, optional
+        Path to model weights file or dictionary. If None, model is loaded from library.
+    device : str | None, optional
+        Device to load model to. If None, device is selected automatically.
+    model_compilation : bool, optional
+        Whether to compile the model for faster inference.
+    batch_size : int, optional
+        Batch size to use for model compilation.
+    dtype : str, optional
+        Data type to use for model. Must be one of:
+        - float32
+        - float
+        - bfloat16
+
+    Returns
+    -------
+    torch.nn.Module
+        Transformer model.
+    """
     if lib_model_token not in ['external'] + list(ALLOWED_MODELS):
         raise ValueError(
             f'model_token must be one of {", ".join(["external"] + list(ALLOWED_MODELS))}, got {lib_model_token}'
         )
 
     if lib_model_token in ALLOWED_MODELS:
+        if (model_cfg_path is not None) or (model_wts_path is not None):
+            raise ValueError(
+                f'model_cfg_path and model_wts_path must be None when lib_model_token is in {ALLOWED_MODELS}'
+            )
         model_config, weights_path = load_library_model(lib_model_token)
+    elif lib_model_token == 'external' and any(x is None for x in [model_cfg_path, model_wts_path]):
+        raise ValueError('model_wts_path must be provided when model_cfg_path is provided')
     else:
-        with Path.open(model_cfg_path) as cfg:
-            model_config = json.load(cfg)
+        if isinstance(model_cfg_path, (str, Path)):
+            with Path.open(model_cfg_path) as cfg:
+                model_config = json.load(cfg)
+        else:
+            model_config = model_cfg_path
+
         weights_path = model_wts_path
 
     if dtype not in TORCH_DTYPE_MAP.keys():
