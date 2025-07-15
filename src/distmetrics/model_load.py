@@ -142,7 +142,7 @@ def load_transformer_model(
     elif lib_model_token == 'external' and any(x is None for x in [model_cfg_path, model_wts_path]):
         raise ValueError('model_wts_path must be provided when model_cfg_path is provided')
     else:
-        if isinstance(model_cfg_path, (str, Path)):
+        if isinstance(model_cfg_path, str | Path):
             with Path.open(model_cfg_path) as cfg:
                 model_config = json.load(cfg)
         else:
