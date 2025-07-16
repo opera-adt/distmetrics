@@ -79,9 +79,6 @@ __pycache__/
 # Ignore pdf Files
 *.pdf
 
-# Ignore json
-*.json
-
 # Coverage
 *.coverage
 

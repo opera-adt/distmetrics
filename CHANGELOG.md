@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-03-20
+
+### Added
+- Nodata interpolation for interior datapoints (i.e. within pixels collected during acquisition) which are np.nan including:
+  - bilinear - an iterative bilinear-like interpolation
+  - nearest - nearest neighbor interpolation
+- dependabot
+- Several models for easier testing
+- notebooks that can do both immediate and anniversary selection to establish baseline
+
+### Changed
+- Removes logit transformation from normal param estimation
+- 4 *new* models for testing
+- `estimate_normal_params_of_logits` --> `estimate_normal_params`
+- Reorganization of transformer metric code into loading model(s), inference, torch model, and metric.
+- Updated notebook so we only download necessary arrays.
+
+### Removed
+- Notebook for multiple burst analysis (will add back later)
+
 ## [0.0.14] - 2025-03-20
 
 ### Fixed
