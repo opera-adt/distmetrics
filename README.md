@@ -6,19 +6,52 @@
 [![Conda version](https://img.shields.io/conda/vn/conda-forge/distmetrics)](https://anaconda.org/conda-forge/distmetrics)
 [![Conda platforms](https://img.shields.io/conda/pn/conda-forge/distmetrics)](https://anaconda.org/conda-forge/distmetrics)
 
-This is a python library for calculating a variety of generic disturbance metrics from input OPERA RTC-S1 time-series including a transformer-based metric proposed in Hardiman-Mostow et al., 2024 [[1]](#1).
-Generic land disturbances refer to any land disturbances observable with OPERA RTC-S1 including land-use changes, natural disasters, deforestation, etc.
-A disturbance metric is a per-pixel function that quantifies via a radiometric or statistical measures such generic land disturbances between a set of baseline images (pre-images) and a new acquisition (post-image).
-This library is specific to the dual-polarization VV $+$ VH OPERA RTC-S1 data and will likely need to be modified for other SAR data.
-The user is expected to provide/curate the co-registered pre-imagery and the post-image for the computation of the distmetric.
+The `distmetrics` (or informally `dist-lib`) provides a set of python tools and metrics to identify generic disturbances within OPERA RTC-S1 time-series including a transformer-based metric proposed in Hardiman-Mostow et al., 2024 [[1]](#1).
+The transformer metric and its application occupies most of this library in order to effectively, efficiently apply this deep-learning based model (using a visual transformer architecture).
+Also, there are:
+- tools for despeckling
+- GIS tools to merge burst-wise products after metrics have been computed
+- downloading burst time series
+"Generic land disturbances" refer to any land disturbances observable with OPERA RTC-S1 including land-use changes, natural disasters, deforestation, etc.
+A disturbance metric is a per-pixel function that quantifies land disturbances between a set of baseline images (pre-images) and a new acquisition (post-image).
+This library is specific to the dual-polarization VV $+$ VH OPERA RTC-S1 data.
 
 # Usage
 
 See the [`notebooks/`](notebooks/). 
-These notebooks show how to download the necessary, publicly available time series and calculate these disturbance metrics.
+These notebooks show how to:
+
+1. download the necessary, publicly available time series of OPERA RTC-S1 data (see setup below)
+2. despeckle the time-series and 
+3. calculate the disturbance metrics for delineating areas of disturbances
+
+## Setup
+
+Please make sure to ensure you have an ASF account (https://search.asf.alaska.edu/#/) and set up a `~/.netrc` with:
+
+```
+machine urs.earthdata.nasa.gov
+    login <username>
+    password <password>
+```
 
 
-## Background
+## Provenance of Transformer Models
+
+Currently there are 4 models in this library (see `from distmetrics.model_load import ALLOWED_MODELS`), though you can load your own weights and config assuming the same architecture.
+The models in this library are:
+   - transformer_original
+   - transformer_optimized
+   - transformer_optimized_fine
+   - transformer_anniversary_trained
+   - transformer_anniversary_trained_10
+Please see the [dist-s1-model](https://github.com/opera-adt/dist-s1-model) [A] for training this transformer model and [dist-s1-training-data](https://github.com/opera-adt/dist-s1-training-data) [B] for curating a dataset from OPERA RTC-S1. There is a link in [A] to the existing dataset that was curated based on time-series with dense preimages and despeckled and masked water. In [B], you can understand how the data is curated. For the models above, here is some discussion:
+- `transformer_original` - the model trained by Harris Hardiman-Mostow on the training data linked to in [A].
+- `transformer_optimized` and `transformer_optimized_fine` are models with the same architecture as `transformer_original` and using the same dataset in [A] by [dmartinez05](https://github.com/dmartinez05) with reduced size. The `fine` refers to the fact that within the input size of the model (`16 x 16`) there are patches used within the input size that are `4 x 4` (as opposed to `8 x 8`).
+- `transformer_anniversary_trained` and `transformer_anniversary_trained_10` were trained by [Jungkyo Jung](https://github.com/oberonia78) using a dataset similar to one found in [B] using despeckling and some landcover masking. The context length of the the former is 20 and the latter 10.
+
+
+## Background on Metrics
 
 This is a python implementation of disturbance metrics for OPERA RTC-S1 data. The intention is to use this library to quantify disturbance in the RTC imagery. Specifically, our "metrics" define distances between a set of dual polarizations "pre-images" and a single dual polarization "post-image". Some of the metrics only work on single polarization imagery.
 
