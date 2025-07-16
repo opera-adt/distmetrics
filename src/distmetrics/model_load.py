@@ -28,6 +28,47 @@ ALLOWED_MODELS = [
 ]
 
 
+def compile_model(
+    transformer: torch.nn.Module, dtype: str, device: str, batch_size: int, cuda_latest: bool = False
+) -> torch.nn.Module:
+    """Optimize model for inference using torch.compile or TensorRT."""
+    if allow_ops_in_compiled_graph:
+        allow_ops_in_compiled_graph()
+
+    if device == 'cuda' and cuda_latest:
+        try:
+            import torch_tensorrt
+
+            # Get dimensions for TensorRT
+            total_pixels = transformer.num_patches * (transformer.patch_size**2)
+            wh = math.isqrt(total_pixels)
+            channels = transformer.data_dim // (transformer.patch_size**2)
+            expected_dims = (batch_size, transformer.max_seq_len, channels, wh, wh)
+
+            transformer = torch_tensorrt.compile(
+                transformer,
+                inputs=[
+                    torch_tensorrt.Input(
+                        min_shape=(1,) + expected_dims[1:],
+                        opt_shape=expected_dims,
+                        max_shape=expected_dims,
+                        dtype=dtype,
+                    )
+                ],
+                enabled_precisions={dtype},
+                truncate_long_and_double=True,
+            )
+        except ImportError:
+            print('torch_tensorrt not available, using standard compilation')
+            transformer = torch.compile(transformer, backend='inductor')
+    elif device == 'cuda':
+        transformer = torch.compile(transformer, backend='inductor')
+    else:
+        transformer = torch.compile(transformer, mode='max-autotune-no-cudagraphs', dynamic=False)
+
+    return transformer
+
+
 def load_library_model(model_name: str) -> tuple[dict, Path]:
     """Load model weights and config from the library directory.
 
@@ -169,32 +210,6 @@ def load_transformer_model(
     transformer = transformer.eval()
 
     if model_compilation:
-        allow_ops_in_compiled_graph()
-
-        if device == 'cuda':
-            import torch_tensorrt
-
-            # Get dimensions
-            total_pixels = transformer.num_patches * (transformer.patch_size**2)
-            wh = math.isqrt(total_pixels)
-            channels = transformer.data_dim // (transformer.patch_size**2)
-            expected_dims = (batch_size, transformer.max_seq_len, channels, wh, wh)
-
-            transformer = torch_tensorrt.compile(
-                transformer,
-                inputs=[
-                    torch_tensorrt.Input(
-                        min_shape=(1,) + expected_dims[1:],
-                        opt_shape=expected_dims,
-                        max_shape=expected_dims,
-                        dtype=torch_dtype,
-                    )
-                ],
-                enabled_precisions={torch_dtype},  # e.g., {torch.float}, {torch.float16}
-                truncate_long_and_double=True,  # Optional: helps prevent type issues
-            )
-
-        else:
-            transformer = torch.compile(transformer, mode='max-autotune-no-cudagraphs', dynamic=False)
+        transformer = compile_model(transformer, torch_dtype, device, batch_size)
 
     return transformer

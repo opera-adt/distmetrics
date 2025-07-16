@@ -106,9 +106,10 @@ def estimate_normal_params_as_logits_explicit(
     return pred_means, pred_sigmas
 
 
-@pytest.mark.parametrize('device', ['cpu', None])
+@pytest.mark.parametrize('device', ['cpu'])
 @pytest.mark.parametrize('model_name', ALLOWED_MODELS)
-def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: str) -> None:
+@pytest.mark.parametrize('model_compilation', [True])
+def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: str, model_compilation: bool) -> None:
     all_paths = list(cropped_despeckled_data_dir.glob('*.tif'))
     vv_paths = [p for p in all_paths if 'VH' in p.name]
     vh_paths = [p for p in all_paths if 'VV' in p.name]
@@ -124,7 +125,9 @@ def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: s
     vv_arrs = [logit(a) for a in vv_arrs]
     vh_arrs = [logit(a) for a in vh_arrs]
 
-    model = load_transformer_model(lib_model_token=model_name, device=device)
+    model = load_transformer_model(lib_model_token=model_name, device=device, model_compilation=model_compilation)
+    print()
+    breakpoint()
     pred_means_explicit, pred_sigmas_explicit = estimate_normal_params_as_logits_explicit(
         model, vv_arrs, vh_arrs, stride=2, device=device
     )

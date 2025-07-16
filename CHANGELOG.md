@@ -12,10 +12,11 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Nodata interpolation for interior datapoints (i.e. within pixels collected during acquisition) which are np.nan including:
   - bilinear - an iterative bilinear-like interpolation
   - nearest - nearest neighbor interpolation
+- dependabot
 
 ## Changed
 - Removes logit transformation from normal param estimation
-- 3 *new* models for testing
+- 4 *new* models for testing
 - `estimate_normal_params_of_logits` --> `estimate_normal_params`
 - Reorganization of transformer metric code into loading model(s), inference, torch model, and metric.
 
