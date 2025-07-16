@@ -13,6 +13,8 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - bilinear - an iterative bilinear-like interpolation
   - nearest - nearest neighbor interpolation
 - dependabot
+- Several models for easier testing
+- notebooks that can do both immediate and anniversary selection to establish baseline
 
 ### Changed
 - Removes logit transformation from normal param estimation
@@ -21,10 +23,8 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Reorganization of transformer metric code into loading model(s), inference, torch model, and metric.
 - Updated notebook so we only download necessary arrays.
 
-### Added
-- Several models for easier testing
-- notebooks that can do both immediate and anniversary selection to establish baseline
-
+### Removed
+- Notebook for multiple burst analysis (will add back later)
 
 ## [0.0.14] - 2025-03-20
 
