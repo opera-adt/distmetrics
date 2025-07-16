@@ -126,8 +126,6 @@ def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: s
     vh_arrs = [logit(a) for a in vh_arrs]
 
     model = load_transformer_model(lib_model_token=model_name, device=device, model_compilation=model_compilation)
-    print()
-    breakpoint()
     pred_means_explicit, pred_sigmas_explicit = estimate_normal_params_as_logits_explicit(
         model, vv_arrs, vh_arrs, stride=2, device=device
     )
