@@ -9,7 +9,7 @@ from scipy.special import logit
 from tqdm import tqdm
 
 from distmetrics.mahalanobis import _transform_pre_arrs
-from distmetrics.model_load import control_flow_for_device, load_transformer_model
+from distmetrics.model_load import ALLOWED_MODELS, control_flow_for_device, load_transformer_model
 from distmetrics.tf_metric import (
     estimate_normal_params,
 )
@@ -107,7 +107,8 @@ def estimate_normal_params_as_logits_explicit(
 
 
 @pytest.mark.parametrize('device', ['cpu', None])
-def test_logit_estimation(cropped_despeckled_data_dir: Path, device: str) -> None:
+@pytest.mark.parametrize('model_name', ALLOWED_MODELS)
+def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: str) -> None:
     all_paths = list(cropped_despeckled_data_dir.glob('*.tif'))
     vv_paths = [p for p in all_paths if 'VH' in p.name]
     vh_paths = [p for p in all_paths if 'VV' in p.name]
@@ -123,7 +124,7 @@ def test_logit_estimation(cropped_despeckled_data_dir: Path, device: str) -> Non
     vv_arrs = [logit(a) for a in vv_arrs]
     vh_arrs = [logit(a) for a in vh_arrs]
 
-    model = load_transformer_model(lib_model_token='transformer_original', device=device)
+    model = load_transformer_model(lib_model_token=model_name, device=device)
     pred_means_explicit, pred_sigmas_explicit = estimate_normal_params_as_logits_explicit(
         model, vv_arrs, vh_arrs, stride=2, device=device
     )
