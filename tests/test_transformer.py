@@ -8,11 +8,10 @@ from numpy.testing import assert_allclose
 from scipy.special import logit
 from tqdm import tqdm
 
-from distmetrics.transformer import (
-    _transform_pre_arrs,
-    control_flow_for_device,
-    estimate_normal_params_of_logits,
-    load_transformer_model,
+from distmetrics.mahalanobis import _transform_pre_arrs
+from distmetrics.model_load import ALLOWED_MODELS, control_flow_for_device, load_transformer_model
+from distmetrics.tf_metric import (
+    estimate_normal_params,
 )
 
 
@@ -55,11 +54,10 @@ def estimate_normal_params_as_logits_explicit(
 
     # Logit transformation
     pre_imgs_stack[mask_stack] = 1e-7
-    pre_imgs_logit = logit(pre_imgs_stack)
-    pre_imgs_logit = np.expand_dims(pre_imgs_logit, axis=0)
+    pre_imgs_stack = np.expand_dims(pre_imgs_stack, axis=0)
 
     # H x W
-    H, W = pre_imgs_logit.shape[-2:]
+    H, W = pre_imgs_stack.shape[-2:]
 
     # Initalize Output arrays
     pred_means = torch.zeros((2, H, W), device=device)
@@ -83,7 +81,7 @@ def estimate_normal_params_as_logits_explicit(
             else:
                 sx = slice(j * stride, j * stride + P)
 
-            chip = torch.from_numpy(pre_imgs_logit[:, :, :, sy, sx]).to(device)
+            chip = torch.from_numpy(pre_imgs_stack[:, :, :, sy, sx]).to(device)
             chip_mask = mask_spatial[sy, sx]
             # Only apply model if nodata mask is smaller than X%
             if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
@@ -108,8 +106,10 @@ def estimate_normal_params_as_logits_explicit(
     return pred_means, pred_sigmas
 
 
-@pytest.mark.parametrize('device', ['cpu', None])
-def test_logit_estimation(cropped_despeckled_data_dir: Path, device: str) -> None:
+@pytest.mark.parametrize('device', ['cpu'])
+@pytest.mark.parametrize('model_name', ALLOWED_MODELS)
+@pytest.mark.parametrize('model_compilation', [True])
+def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: str, model_compilation: bool) -> None:
     all_paths = list(cropped_despeckled_data_dir.glob('*.tif'))
     vv_paths = [p for p in all_paths if 'VH' in p.name]
     vh_paths = [p for p in all_paths if 'VV' in p.name]
@@ -122,14 +122,17 @@ def test_logit_estimation(cropped_despeckled_data_dir: Path, device: str) -> Non
     vv_arrs = [open_arr(p) for p in vv_paths]
     vh_arrs = [open_arr(p) for p in vh_paths]
 
-    model = load_transformer_model(device=device)
+    vv_arrs = [logit(a) for a in vv_arrs]
+    vh_arrs = [logit(a) for a in vh_arrs]
+
+    model = load_transformer_model(lib_model_token=model_name, device=device, model_compilation=model_compilation)
     pred_means_explicit, pred_sigmas_explicit = estimate_normal_params_as_logits_explicit(
         model, vv_arrs, vh_arrs, stride=2, device=device
     )
-    pred_means_stream, pred_sigmas_stream = estimate_normal_params_of_logits(
+    pred_means_stream, pred_sigmas_stream = estimate_normal_params(
         model, vv_arrs, vh_arrs, memory_strategy='low', stride=2, device=device
     )
-    pred_means_fold, pred_sigmas_fold = estimate_normal_params_of_logits(
+    pred_means_fold, pred_sigmas_fold = estimate_normal_params(
         model, vv_arrs, vh_arrs, memory_strategy='high', stride=2, device=device
     )
 
