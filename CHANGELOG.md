@@ -19,6 +19,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 4 *new* models for testing
 - `estimate_normal_params_of_logits` --> `estimate_normal_params`
 - Reorganization of transformer metric code into loading model(s), inference, torch model, and metric.
+- Updated notebook so we only download necessary arrays.
 
 ## Added
 - Several models for easier testing
