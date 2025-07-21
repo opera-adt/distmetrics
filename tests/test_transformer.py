@@ -46,7 +46,7 @@ def test_external_model_loading(device: str, model_name: str) -> None:
     )
 
     # Verify both models have the same architecture
-    assert type(model_lib) == type(model_external)
+    assert isinstance(model_lib, type(model_external))
     assert model_lib.num_patches == model_external.num_patches
     assert model_lib.patch_size == model_external.patch_size
     assert model_lib.data_dim == model_external.data_dim
