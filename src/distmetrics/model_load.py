@@ -77,9 +77,9 @@ def load_library_model_config(model_name: str) -> dict:
     config_path = model_dir / 'config.json'
 
     if not model_dir.exists():
-        raise ValueError(f'Model directory {model_dir} does not exist')
+        raise FileNotFoundError(f'Model directory {model_dir} does not exist')
     if not config_path.exists():
-        raise ValueError(f'Config file {config_path} does not exist')
+        raise FileNotFoundError(f'Config file {config_path} does not exist')
 
     with config_path.open() as f:
         config = json.load(f)
@@ -88,8 +88,9 @@ def load_library_model_config(model_name: str) -> dict:
 
 
 def load_weights_from_path(weights_path: Path | str, device: str | None = None) -> dict:
+    weights_path = Path(weights_path)
     if not weights_path.exists():
-        raise ValueError(f'Weights file {weights_path} does not exist')
+        raise FileNotFoundError(f'Weights file {weights_path} does not exist')
 
     device = control_flow_for_device(device)
     checkpoint = torch.load(weights_path, map_location=device)
@@ -111,7 +112,7 @@ def load_library_model_weights(model_name: str, device: str | None = None) -> di
     weights_path = model_dir / 'weights.pth'
 
     if not weights_path.exists():
-        raise ValueError(f'Weights file {weights_path} does not exist')
+        raise FileNotFoundError(f'Weights file {weights_path} does not exist')
 
     return load_weights_from_path(weights_path, device)
 
