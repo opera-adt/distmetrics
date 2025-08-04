@@ -8,6 +8,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.2] - 2025-08-04
 * Load model config and obtain maximum sequence length (context length) of model.
+* Decouple loading of config and weights.
 
 
 ## [1.0.1] - 2025-07-20
