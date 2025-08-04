@@ -69,6 +69,24 @@ def compile_model(
     return transformer
 
 
+def load_library_model_config(model_name: str) -> dict:
+    if model_name not in ALLOWED_MODELS:
+        raise ValueError(f'Model name must be one of: {", ".join(ALLOWED_MODELS)}, got {model_name}')
+
+    model_dir = MODEL_DATA / model_name
+    config_path = model_dir / 'config.json'
+
+    if not model_dir.exists():
+        raise ValueError(f'Model directory {model_dir} does not exist')
+    if not config_path.exists():
+        raise ValueError(f'Config file {config_path} does not exist')
+
+    with config_path.open() as f:
+        config = json.load(f)
+
+    return config
+
+
 def load_library_model(model_name: str) -> tuple[dict, Path]:
     """Load model weights and config from the library directory.
 
@@ -213,3 +231,16 @@ def load_transformer_model(
         transformer = compile_model(transformer, torch_dtype, device, batch_size)
 
     return transformer
+
+
+def get_model_context_length(model_name: str, model_cfg_path: Path | str | dict | None = None) -> int:
+    if model_name not in ALLOWED_MODELS + ['external']:
+        raise ValueError(f'Model name must be one of: {", ".join(ALLOWED_MODELS + ["external"])}, got {model_name}')
+
+    if model_name in ALLOWED_MODELS:
+        model_cfg = load_library_model_config(model_name)
+    else:
+        with Path.open(model_cfg_path) as cfg:
+            model_cfg = json.load(cfg)
+
+    return model_cfg['max_seq_len']
