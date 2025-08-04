@@ -15,6 +15,89 @@ from distmetrics.tf_metric import (
 )
 
 
+@pytest.mark.parametrize('device', ['cpu'])
+@pytest.mark.parametrize('model_name', ALLOWED_MODELS)
+def test_external_model_loading(device: str, model_name: str) -> None:
+    """Test loading a model using explicit config and weights paths instead of library token."""
+    # Get the model data directory using the same approach as the library
+    import distmetrics.model_load
+
+    model_data_dir = Path(distmetrics.model_load.__file__).parent.resolve() / 'model_data'
+
+    # Construct paths to config and weights for the specified model
+    model_dir = model_data_dir / model_name
+    config_path = model_dir / 'config.json'
+    weights_path = model_dir / 'weights.pth'
+
+    # Verify the files exist
+    assert config_path.exists(), f'Config file {config_path} does not exist'
+    assert weights_path.exists(), f'Weights file {weights_path} does not exist'
+
+    # Load model using library token (reference)
+    model_lib = load_transformer_model(lib_model_token=model_name, device=device, model_compilation=False)
+
+    # Load model using explicit paths
+    model_external = load_transformer_model(
+        lib_model_token='external',
+        model_cfg_path=config_path,
+        model_wts_path=weights_path,
+        device=device,
+        model_compilation=False,
+    )
+
+    # Verify both models have the same architecture
+    assert isinstance(model_lib, type(model_external))
+    assert model_lib.num_patches == model_external.num_patches
+    assert model_lib.patch_size == model_external.patch_size
+    assert model_lib.data_dim == model_external.data_dim
+    assert model_lib.max_seq_len == model_external.max_seq_len
+
+    # Verify both models have the same weights by comparing a few key parameters
+    lib_params = dict(model_lib.named_parameters())
+    ext_params = dict(model_external.named_parameters())
+
+    assert set(lib_params.keys()) == set(ext_params.keys()), 'Models have different parameter names'
+
+    # Compare a subset of parameters to verify they're identical
+    for param_name in list(lib_params.keys())[:5]:  # Check first 5 parameters
+        assert_allclose(
+            lib_params[param_name].detach().cpu().numpy(),
+            ext_params[param_name].detach().cpu().numpy(),
+            rtol=1e-7,
+            err_msg=f'Parameter {param_name} differs between library and external loading',
+        )
+
+
+@pytest.mark.parametrize('device', ['cpu'])
+def test_external_model_loading_error_handling(device: str) -> None:
+    """Test error handling when loading models with invalid external paths."""
+    # Test with non-existent config file
+    with pytest.raises(FileNotFoundError):
+        load_transformer_model(
+            lib_model_token='external',
+            model_cfg_path='/path/that/does/not/exist/config.json',
+            model_wts_path='/path/that/does/not/exist/weights.pth',
+            device=device,
+            model_compilation=False,
+        )
+
+    # Test with None paths when using external token
+    with pytest.raises(ValueError, match='model_wts_path must be provided'):
+        load_transformer_model(
+            lib_model_token='external', model_cfg_path=None, model_wts_path=None, device=device, model_compilation=False
+        )
+
+    # Test with only one path provided
+    with pytest.raises(ValueError, match='model_wts_path must be provided'):
+        load_transformer_model(
+            lib_model_token='external',
+            model_cfg_path='/some/path/config.json',
+            model_wts_path=None,
+            device=device,
+            model_compilation=False,
+        )
+
+
 @torch.no_grad()
 def estimate_normal_params_as_logits_explicit(
     model: torch.nn.Module,
