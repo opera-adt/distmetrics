@@ -40,16 +40,19 @@ machine urs.earthdata.nasa.gov
 
 Currently there are 4 models in this library (see `from distmetrics.model_load import ALLOWED_MODELS`), though you can load your own weights and config assuming the same architecture.
 The models in this library are:
-   - transformer_original
-   - transformer_optimized
-   - transformer_optimized_fine
-   - transformer_anniversary_trained
-   - transformer_anniversary_trained_10
+   - `transformer_original`
+   - `transformer_optimized`
+   - `transformer_optimized_fine`
+   - `transformer_anniversary_trained`
+   - `transformer_anniversary_trained_10`
+   - `transformer_anniversary_trained_optimized`
+   - `transformer_anniversary_trained_optimized_fine`
 
 Please see the [dist-s1-model](https://github.com/opera-adt/dist-s1-model) [A] for training this transformer model and [dist-s1-training-data](https://github.com/opera-adt/dist-s1-training-data) [B] for curating a dataset from OPERA RTC-S1. There is a link in [A] to the existing dataset that was curated based on time-series with dense preimages and despeckled and masked water. In [B], you can understand how the data is curated. For the models above, here is some additional discussion:
 - `transformer_original` - the model trained by Harris Hardiman-Mostow on the training data linked to in [A].
 - `transformer_optimized` and `transformer_optimized_fine` are models with the same architecture as `transformer_original` and using the same dataset in [A] by [dmartinez05](https://github.com/dmartinez05) with reduced size. The `fine` refers to the fact that within the input size of the model (`16 x 16`) there are patches used within the input size that are `4 x 4` (as opposed to `8 x 8`).
 - `transformer_anniversary_trained` and `transformer_anniversary_trained_10` were trained by [Jungkyo Jung](https://github.com/oberonia78) using a dataset similar to one found in [B] using despeckling and some landcover masking. The context length of the the former is 20 and the latter 10.
+- `transformer_anniversary_trained_optimized` and `transformer_anniversary_trained_optimized_fine` were trained by [dmartinez05](https://github.com/dmartinez05) using the same dataset used for `transformer_anniversary_trained` and are optimized in that they use less parameters and the `fine` suffix refers to the internal model patches are `4 x 4`.
 
 
 ## Background on Metrics
