@@ -52,7 +52,7 @@ Please see the [dist-s1-model](https://github.com/opera-adt/dist-s1-model) [A] f
 - `transformer_original` - the model trained by Harris Hardiman-Mostow on the training data linked to in [A].
 - `transformer_optimized` and `transformer_optimized_fine` are models with the same architecture as `transformer_original` and using the same dataset in [A] by [dmartinez05](https://github.com/dmartinez05) with reduced size. The `fine` refers to the fact that within the input size of the model (`16 x 16`) there are patches used within the input size that are `4 x 4` (as opposed to `8 x 8`).
 - `transformer_anniversary_trained` and `transformer_anniversary_trained_10` were trained by [Jungkyo Jung](https://github.com/oberonia78) using a dataset similar to one found in [B] using despeckling and some landcover masking. The context length of the the former is 20 and the latter 10.
-- `transformer_anniversary_trained_optimized` and ``transformer_anniversary_trained_optimized_fine` were trained by [dmartinez05](https://github.com/dmartinez05) using the same dataset used for `transformer_anniversary_trained` and `transformer_anniversary_trained_10`.
+- `transformer_anniversary_trained_optimized` and `transformer_anniversary_trained_optimized_fine` were trained by [dmartinez05](https://github.com/dmartinez05) using the same dataset used for `transformer_anniversary_trained` and are optimized in that they use less parameters and the `fine` suffix refers to the internal model patches are `4 x 4`.
 
 
 ## Background on Metrics
