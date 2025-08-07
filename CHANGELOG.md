@@ -7,6 +7,12 @@ and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+# [1.0.2] - 2025-08-6
+
+## Added
+* New models from v1 dataset.
+
+
 ## [1.0.1] - 2025-07-20
 
 ### Changed

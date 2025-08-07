@@ -24,7 +24,8 @@ ALLOWED_MODELS = [
     'transformer_optimized',
     'transformer_optimized_fine',
     'transformer_anniversary_trained',
-    'transformer_anniversary_trained_10',
+    'transformer_anniversary_trained_optimized',
+    'transformer_anniversary_trained_optimized_fine',
 ]
 
 
