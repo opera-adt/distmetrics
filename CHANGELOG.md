@@ -10,13 +10,12 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.0.3] - 2025-08-25
 
 ### Changed
-* Latest weights for `transformer_anniversary_trained_optimized_fine` and `transformer_anniversary_trained_optimized`.
+* Latest weights for `transformer_anniversary_trained_optimized_fine` and `transformer_anniversary_trained_optimized` the v1 datasets.
 
-# [1.0.2] - 2025-08-06
+## [1.0.2] - 2025-08-6
 
-## Added
+### Added
 * New models from v1 dataset.
-
 
 ## [1.0.1] - 2025-07-20
 
