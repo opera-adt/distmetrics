@@ -1,7 +1,7 @@
 {
-  "patch_size": 8,
+  "patch_size": 4,
   "input_size": 16,
-  "data_dim": 128,
+  "data_dim": 32,
   "d_model": 128,
   "nhead": 16,
   "num_encoder_layers": 2,
