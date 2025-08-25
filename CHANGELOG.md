@@ -7,7 +7,12 @@ and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-# [1.0.2] - 2025-08-6
+## [1.0.3] - 2025-08-25
+
+### Changed
+* Latest weights for `transformer_anniversary_trained_optimized_fine` and `transformer_anniversary_trained_optimized`.
+
+# [1.0.2] - 2025-08-06
 
 ## Added
 * New models from v1 dataset.
