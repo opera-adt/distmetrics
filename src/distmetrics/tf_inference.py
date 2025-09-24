@@ -11,6 +11,35 @@ from distmetrics.mahalanobis import _transform_pre_arrs
 from distmetrics.model_load import TORCH_DTYPE_MAP, control_flow_for_device
 
 
+def _call_model_with_version_handling(model, patch_batch, acq_dts_float=None):
+    """
+    Helper function to handle different model signatures for v1 and v2.
+
+    V1 models (SpatioTemporalTransformer): model(patch_batch)
+    V2 models (SpatioTemporalTransformerRedux): model(patch_batch, acq_dts_float)
+    """
+    # Check if model has 'use_v2' attribute or try to detect v2 based on method signature
+    is_v2 = False
+
+    # First, check if the model config was stored and has use_v2
+    if hasattr(model, 'temporal_embedding'):
+        is_v2 = True
+    # Alternative check: look for v2-specific attributes
+    elif hasattr(model, 'nan_token') and hasattr(model, 'pad_embed'):
+        is_v2 = True
+
+    if is_v2:
+        if acq_dts_float is None:
+            # Create dummy acquisition dates with zeros
+            batch_size, seq_len = patch_batch.shape[0], patch_batch.shape[1]
+            device = patch_batch.device
+            dtype = patch_batch.dtype
+            acq_dts_float = torch.zeros((batch_size, seq_len), dtype=dtype, device=device)
+        return model(patch_batch, acq_dts_float)
+    else:
+        return model(patch_batch)
+
+
 def unfolding_stream(
     image_st: torch.Tensor, kernel_size: int, stride: int, batch_size: int
 ) -> Generator[torch.Tensor, None, None]:
@@ -53,6 +82,7 @@ def _estimate_params_via_streamed_patches(
     model: torch.nn.Module,
     imgs_copol: list[np.ndarray],
     imgs_crosspol: list[np.ndarray],
+    acq_dts_float: list[float] | None = None,
     stride: int = 2,
     batch_size: int = 32,
     max_nodata_ratio: float = 0.1,
@@ -137,7 +167,7 @@ def _estimate_params_via_streamed_patches(
         dynamic_ncols=True,
     ):
         patch_batch = patch_batch.to(device, dtype=torch_dtype)
-        chip_mean, chip_logvar = model(patch_batch)
+        chip_mean, chip_logvar = _call_model_with_version_handling(model, patch_batch, acq_dts_float)
         for k, (sy, sx) in enumerate(slices):
             chip_mask = mask_spatial[sy, sx]
             if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
@@ -162,6 +192,7 @@ def _estimate_params_via_folding(
     model: torch.nn.Module,
     imgs_copol: list[np.ndarray],
     imgs_crosspol: list[np.ndarray],
+    acq_dts_float: list[float] | None = None,
     stride: int = 2,
     batch_size: int = 32,
     device: str | None = None,
@@ -257,7 +288,7 @@ def _estimate_params_via_folding(
         # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
         batch_s = slice(batch_size * i, batch_size * (i + 1))
         patch_batch = patches[batch_s, ...].view(-1, T, C, P, P)
-        chip_mean, chip_logvar = model(patch_batch)
+        chip_mean, chip_logvar = _call_model_with_version_handling(model, patch_batch, acq_dts_float)
         pred_means_p[batch_s, ...] += chip_mean
         pred_logvars_p[batch_s, ...] += chip_logvar
     del patches
@@ -295,6 +326,7 @@ def estimate_normal_params(
     model: torch.nn.Module,
     imgs_copol: list[np.ndarray],
     imgs_crosspol: list[np.ndarray],
+    acq_dts_float: list[float] | None = None,
     stride: int = 2,
     batch_size: int = 32,
     tqdm_enabled: bool = True,
@@ -313,6 +345,7 @@ def estimate_normal_params(
         model,
         imgs_copol,
         imgs_crosspol,
+        acq_dts_float=acq_dts_float,
         stride=stride,
         batch_size=batch_size,
         tqdm_enabled=tqdm_enabled,

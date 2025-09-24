@@ -7,7 +7,7 @@ import torch
 import torch.mps
 from einops._torch_specific import allow_ops_in_compiled_graph
 
-from distmetrics.tf_model import SpatioTemporalTransformer
+from distmetrics.tf_model import SpatioTemporalTransformer, SpatioTemporalTransformerRedux
 
 
 MODEL_DATA = Path(__file__).parent.resolve() / 'model_data'
@@ -175,7 +175,7 @@ def load_transformer_model(
     Returns
     -------
     torch.nn.Module
-        Transformer model.
+        Transformer model. Version is determined by 'use_v2' field in model config.
     """
     if lib_model_token not in ['external'] + list(ALLOWED_MODELS):
         raise ValueError(
@@ -200,7 +200,16 @@ def load_transformer_model(
         raise ValueError(f'dtype must be one of {", ".join(TORCH_DTYPE_MAP.keys())}, got {dtype}')
     torch_dtype = TORCH_DTYPE_MAP[dtype]
 
-    transformer = SpatioTemporalTransformer(**model_config).to(device)
+    device = control_flow_for_device(device)
+
+    # Check if model config specifies version 2
+    use_v2 = model_config.get('use_v2', False)
+
+    if use_v2:
+        transformer = SpatioTemporalTransformerRedux(model_config).to(device)
+    else:
+        transformer = SpatioTemporalTransformer(**model_config).to(device)
+
     transformer.load_state_dict(weights)
     transformer = transformer.eval()
 
