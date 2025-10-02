@@ -7,6 +7,15 @@ and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.4] - 2025-10-02
+
+### Fixed
+* Fixed asf search for notebook examples:
+  *  filters out dates with single polarization 
+  *  allows users to select which dual polarization to use (`HH+HV` vs. `VV+VH`)
+* Baseline curation matches dist-s1.
+
+
 ## [1.0.3] - 2025-08-25
 
 ### Changed
