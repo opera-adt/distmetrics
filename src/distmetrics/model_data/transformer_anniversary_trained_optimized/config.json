@@ -6,7 +6,7 @@
     "nhead": 16,
     "num_encoder_layers": 2,
     "dim_feedforward": 384,
-    "max_seq_len": 30,
+    "max_seq_len": 20,
     "dropout": 0.2,
     "activation": "relu"
 }
