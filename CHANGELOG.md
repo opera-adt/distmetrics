@@ -14,7 +14,6 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   *  filters out dates with single polarization 
   *  allows users to select which dual polarization to use (`HH+HV` vs. `VV+VH`)
 * Baseline curation matches dist-s1.
-* Max sequence length (or context length) matches what was trained on (30 -> 20).
 
 
 ## [1.0.3] - 2025-08-25
