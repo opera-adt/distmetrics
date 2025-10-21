@@ -59,6 +59,7 @@ def _estimate_params_via_streamed_patches(
     tqdm_enabled: bool = True,
     device: str | None = None,
     dtype: str = 'float32',
+    fill_value: float = 0,
 ) -> tuple[np.ndarray]:
     """Estimate the mean and sigma of the normal distribution of logit input images using low-memory strategy.
 
@@ -77,6 +78,9 @@ def _estimate_params_via_streamed_patches(
         How to batch chips.
     dtype : str, optional
         Data type for torch tensors. Must be a key in TORCH_DTYPE_MAP. Defaults to 'float32'.
+    fill_value : float, optional
+        Value to fill in for masked values. Defaults to 0. When the arrays are logits, this means these are the
+        the center of logit range.
 
     Returns
     -------
@@ -167,6 +171,7 @@ def _estimate_params_via_folding(
     device: str | None = None,
     tqdm_enabled: bool = True,
     dtype: str = 'float32',
+    fill_value: float = 0,
 ) -> tuple[np.ndarray]:
     """Estimate the mean and sigma of the normal distribution input images using high-memory strategy.
 
@@ -188,6 +193,9 @@ def _estimate_params_via_folding(
         Acceptable values are 'cpu', 'cuda', 'mps'. Defaults to None.
     dtype : str, optional
         Data type for torch tensors. Must be a key in TORCH_DTYPE_MAP. Defaults to 'float32'.
+    fill_value : float, optional
+        Value to fill in for masked values. Defaults to 0. When the arrays are logits, this means these are the
+        the center of logit range.
 
     Returns
     -------
@@ -219,8 +227,9 @@ def _estimate_params_via_folding(
     mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1))).to(device)
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
-    # Logit transformation
-    pre_imgs_stack[mask_stack] = 1e-7
+    # This really only works for logits - this effectively puts the logit values at 0
+    # TODO: generalize this for non-logits
+    pre_imgs_stack[mask_stack] = fill_value
 
     # H x W
     H, W = pre_imgs_stack.shape[-2:]
@@ -301,6 +310,7 @@ def estimate_normal_params(
     memory_strategy: str = 'high',
     device: str | None = None,
     dtype: str = 'float32',
+    fill_value: float = 0,
 ) -> tuple[np.ndarray]:
     if memory_strategy not in ['high', 'low']:
         raise ValueError('memory strategy must be high or low')
@@ -309,6 +319,7 @@ def estimate_normal_params(
         _estimate_params_via_folding if memory_strategy == 'high' else _estimate_params_via_streamed_patches
     )
 
+    mask_spatial = np.isnan(imgs_copol[0])
     mu, sigma = estimate_norm_params(
         model,
         imgs_copol,
@@ -318,5 +329,8 @@ def estimate_normal_params(
         tqdm_enabled=tqdm_enabled,
         device=device,
         dtype=dtype,
+        fill_value=fill_value,
     )
+    mu[:, mask_spatial] = np.nan
+    sigma[:, mask_spatial] = np.nan
     return mu, sigma

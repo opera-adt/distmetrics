@@ -16,6 +16,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Baseline curation matches dist-s1.
 * Add models for v0 and v1 that use 32 x 32 input size.
 * Dynamically update input size for inference using model attribute.
+* Expose fill value that was reminant of old logit transformation and is now explicit
 
 
 ## [1.0.3] - 2025-08-25

@@ -106,6 +106,7 @@ def estimate_normal_params_as_logits_explicit(
     stride: int = 4,
     max_nodata_ratio: float = 0.1,
     device: str | None = None,
+    fill_value: float = 0,
 ) -> tuple[np.ndarray]:
     """
     Estimate the mean and sigma of the normal distribution of the logits of the input images.
@@ -136,7 +137,7 @@ def estimate_normal_params_as_logits_explicit(
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
     # Logit transformation
-    pre_imgs_stack[mask_stack] = 1e-7
+    pre_imgs_stack[mask_stack] = fill_value
     pre_imgs_stack = np.expand_dims(pre_imgs_stack, axis=0)
 
     # H x W
