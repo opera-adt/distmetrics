@@ -59,6 +59,7 @@ def _estimate_params_via_streamed_patches(
     tqdm_enabled: bool = True,
     device: str | None = None,
     dtype: str = 'float32',
+    fill_value: float = 0,
 ) -> tuple[np.ndarray]:
     """Estimate the mean and sigma of the normal distribution of logit input images using low-memory strategy.
 
@@ -77,6 +78,9 @@ def _estimate_params_via_streamed_patches(
         How to batch chips.
     dtype : str, optional
         Data type for torch tensors. Must be a key in TORCH_DTYPE_MAP. Defaults to 'float32'.
+    fill_value : float, optional
+        Value to fill in for masked values. Defaults to 0. When the arrays are logits, this means these are the
+        the center of logit range.
 
     Returns
     -------
@@ -87,8 +91,8 @@ def _estimate_params_via_streamed_patches(
     -----
     - Applied model to images where mask values are assigned 1e-7
     """
-    P = 16
-    assert stride <= P
+    input_size = model.input_size
+    assert stride <= input_size
     assert stride > 0
 
     if dtype not in TORCH_DTYPE_MAP.keys():
@@ -115,8 +119,8 @@ def _estimate_params_via_streamed_patches(
     C, H, W = pre_imgs_stack.shape[-3:]
 
     # Sliding window
-    n_patches_y = int(np.floor((H - P) / stride) + 1)
-    n_patches_x = int(np.floor((W - P) / stride) + 1)
+    n_patches_y = int(np.floor((H - input_size) / stride) + 1)
+    n_patches_x = int(np.floor((W - input_size) / stride) + 1)
     n_patches = n_patches_y * n_patches_x
 
     n_batches = math.ceil(n_patches / batch_size)
@@ -126,7 +130,7 @@ def _estimate_params_via_streamed_patches(
     pred_means = torch.zeros(*target_shape).to(device, dtype=torch_dtype)
     pred_logvars = torch.zeros(*target_shape).to(device, dtype=torch_dtype)
 
-    unfold_gen = unfolding_stream(pre_imgs_stack_t, P, stride, batch_size)
+    unfold_gen = unfolding_stream(pre_imgs_stack_t, input_size, stride, batch_size)
 
     for patch_batch, slices in tqdm(
         unfold_gen,
@@ -167,6 +171,7 @@ def _estimate_params_via_folding(
     device: str | None = None,
     tqdm_enabled: bool = True,
     dtype: str = 'float32',
+    fill_value: float = 0,
 ) -> tuple[np.ndarray]:
     """Estimate the mean and sigma of the normal distribution input images using high-memory strategy.
 
@@ -188,6 +193,9 @@ def _estimate_params_via_folding(
         Acceptable values are 'cpu', 'cuda', 'mps'. Defaults to None.
     dtype : str, optional
         Data type for torch tensors. Must be a key in TORCH_DTYPE_MAP. Defaults to 'float32'.
+    fill_value : float, optional
+        Value to fill in for masked values. Defaults to 0. When the arrays are logits, this means these are the
+        the center of logit range.
 
     Returns
     -------
@@ -199,8 +207,8 @@ def _estimate_params_via_folding(
     - May apply model to chips of slightly smaller size around boundary
     - Applied model to images where mask values are assigned 1e-7
     """
-    P = 16
-    assert stride <= P
+    input_size = model.input_size
+    assert stride <= input_size
     assert stride > 0
 
     if dtype not in TORCH_DTYPE_MAP.keys():
@@ -219,8 +227,9 @@ def _estimate_params_via_folding(
     mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1))).to(device)
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
-    # Logit transformation
-    pre_imgs_stack[mask_stack] = 1e-7
+    # This really only works for logits - this effectively puts the logit values at 0
+    # TODO: generalize this for non-logits
+    pre_imgs_stack[mask_stack] = fill_value
 
     # H x W
     H, W = pre_imgs_stack.shape[-2:]
@@ -228,22 +237,22 @@ def _estimate_params_via_folding(
     C = pre_imgs_stack.shape[1]
 
     # Sliding window
-    n_patches_y = int(np.floor((H - P) / stride) + 1)
-    n_patches_x = int(np.floor((W - P) / stride) + 1)
+    n_patches_y = int(np.floor((H - input_size) / stride) + 1)
+    n_patches_x = int(np.floor((W - input_size) / stride) + 1)
     n_patches = n_patches_y * n_patches_x
 
     # Shape (T x 2 x H x W)
     pre_imgs_stack_t = torch.from_numpy(pre_imgs_stack).to(device, dtype=torch_dtype)
     # T x (2 * P**2) x n_patches
-    patches = F.unfold(pre_imgs_stack_t, kernel_size=P, stride=stride)
+    patches = F.unfold(pre_imgs_stack_t, kernel_size=input_size, stride=stride)
     # n_patches x T x (C * P**2)
     patches = patches.permute(2, 0, 1).to(device, dtype=torch_dtype)
     # n_patches x T x C x P**2
-    patches = patches.view(n_patches, T, C, P**2)
+    patches = patches.view(n_patches, T, C, input_size**2)
 
     n_batches = math.ceil(n_patches / batch_size)
 
-    target_chip_shape = (n_patches, C, P, P)
+    target_chip_shape = (n_patches, C, input_size, input_size)
     pred_means_p = torch.zeros(*target_chip_shape).to(device, dtype=torch_dtype)
     pred_logvars_p = torch.zeros(*target_chip_shape).to(device, dtype=torch_dtype)
 
@@ -256,7 +265,7 @@ def _estimate_params_via_folding(
     ):
         # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
         batch_s = slice(batch_size * i, batch_size * (i + 1))
-        patch_batch = patches[batch_s, ...].view(-1, T, C, P, P)
+        patch_batch = patches[batch_s, ...].view(-1, T, C, input_size, input_size)
         chip_mean, chip_logvar = model(patch_batch)
         pred_means_p[batch_s, ...] += chip_mean
         pred_logvars_p[batch_s, ...] += chip_logvar
@@ -264,17 +273,17 @@ def _estimate_params_via_folding(
     torch.cuda.empty_cache()
 
     # n_patches x C x P x P -->  (C * P**2) x n_patches
-    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * P**2).permute(1, 0)
-    pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
+    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * input_size**2).permute(1, 0)
+    pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=input_size, stride=stride)
     del pred_logvars_p
 
-    pred_means_p_reshaped = pred_means_p.view(n_patches, C * P**2).permute(1, 0)
-    pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=P, stride=stride)
+    pred_means_p_reshaped = pred_means_p.view(n_patches, C * input_size**2).permute(1, 0)
+    pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=input_size, stride=stride)
     del pred_means_p_reshaped
 
     input_ones = torch.ones(1, H, W).to(device, dtype=torch_dtype)
-    count_patches = F.unfold(input_ones, kernel_size=P, stride=stride)
-    count = F.fold(count_patches, output_size=(H, W), kernel_size=P, stride=stride)
+    count_patches = F.unfold(input_ones, kernel_size=input_size, stride=stride)
+    count = F.fold(count_patches, output_size=(H, W), kernel_size=input_size, stride=stride)
     del count_patches
     torch.cuda.empty_cache()
 
@@ -301,6 +310,7 @@ def estimate_normal_params(
     memory_strategy: str = 'high',
     device: str | None = None,
     dtype: str = 'float32',
+    fill_value: float = 0,
 ) -> tuple[np.ndarray]:
     if memory_strategy not in ['high', 'low']:
         raise ValueError('memory strategy must be high or low')
@@ -309,6 +319,7 @@ def estimate_normal_params(
         _estimate_params_via_folding if memory_strategy == 'high' else _estimate_params_via_streamed_patches
     )
 
+    mask_spatial = np.isnan(imgs_copol[0])
     mu, sigma = estimate_norm_params(
         model,
         imgs_copol,
@@ -318,5 +329,8 @@ def estimate_normal_params(
         tqdm_enabled=tqdm_enabled,
         device=device,
         dtype=dtype,
+        fill_value=fill_value,
     )
+    mu[:, mask_spatial] = np.nan
+    sigma[:, mask_spatial] = np.nan
     return mu, sigma

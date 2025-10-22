@@ -106,6 +106,7 @@ def estimate_normal_params_as_logits_explicit(
     stride: int = 4,
     max_nodata_ratio: float = 0.1,
     device: str | None = None,
+    fill_value: float = 0,
 ) -> tuple[np.ndarray]:
     """
     Estimate the mean and sigma of the normal distribution of the logits of the input images.
@@ -118,8 +119,8 @@ def estimate_normal_params_as_logits_explicit(
        - we always have a 16 x 16 patch as an input chip for the model
        - we do not apply the model if the ratio of masked pixels in a chip exceeds max_nodata_ratio
     """
-    P = 16
-    assert stride <= P
+    input_size = model.input_size
+    assert stride <= input_size
     assert stride > 0
     assert (max_nodata_ratio < 1) and (max_nodata_ratio > 0)
 
@@ -136,7 +137,7 @@ def estimate_normal_params_as_logits_explicit(
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
     # Logit transformation
-    pre_imgs_stack[mask_stack] = 1e-7
+    pre_imgs_stack[mask_stack] = fill_value
     pre_imgs_stack = np.expand_dims(pre_imgs_stack, axis=0)
 
     # H x W
@@ -148,21 +149,21 @@ def estimate_normal_params_as_logits_explicit(
     count = torch.zeros_like(pred_means)
 
     # Sliding window
-    n_patches_y = int(np.floor((H - P) / stride) + 1)
-    n_patches_x = int(np.floor((W - P) / stride) + 1)
+    n_patches_y = int(np.floor((H - input_size) / stride) + 1)
+    n_patches_x = int(np.floor((W - input_size) / stride) + 1)
 
     model.eval()  # account for dropout, etc
     for i in tqdm(range(n_patches_y), desc='Rows Traversed'):
         for j in range(n_patches_x):
             if i == (n_patches_y - 1):
-                sy = slice(H - P, H)
+                sy = slice(H - input_size, H)
             else:
-                sy = slice(i * stride, i * stride + P)
+                sy = slice(i * stride, i * stride + input_size)
 
             if j == (n_patches_x - 1):
-                sx = slice(W - P, W)
+                sx = slice(W - input_size, W)
             else:
-                sx = slice(j * stride, j * stride + P)
+                sx = slice(j * stride, j * stride + input_size)
 
             chip = torch.from_numpy(pre_imgs_stack[:, :, :, sy, sx]).to(device)
             chip_mask = mask_spatial[sy, sx]
@@ -170,8 +171,8 @@ def estimate_normal_params_as_logits_explicit(
             if (chip_mask).sum().item() / chip_mask.nelement() <= max_nodata_ratio:
                 chip_mean, chip_logvar = model(chip)
                 chip_mean, chip_logvar = chip_mean[0, ...], chip_logvar[0, ...]
-                pred_means[:, sy, sx] += chip_mean.reshape((2, P, P))
-                pred_logvars[:, sy, sx] += chip_logvar.reshape((2, P, P))
+                pred_means[:, sy, sx] += chip_mean.reshape((2, input_size, input_size))
+                pred_logvars[:, sy, sx] += chip_logvar.reshape((2, input_size, input_size))
                 count[:, sy, sx] += 1
             else:
                 continue
