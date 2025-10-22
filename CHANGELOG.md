@@ -14,9 +14,11 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   *  filters out dates with single polarization 
   *  allows users to select which dual polarization to use (`HH+HV` vs. `VV+VH`)
 * Baseline curation matches dist-s1.
+
+### Added
 * Add models for v0 and v1 that use 32 x 32 input size.
-* Dynamically update input size for inference using model attribute.
-* Expose fill value that was reminant of old logit transformation and is now explicit
+* Dynamically update `input_size` (i.e. the size of the input image) for inference using the corresponding model attribute.
+* Expose fill value of model inference (via `fill_value`) that was reminant of old logit transformation and is now explicitly set and can be modified
 
 
 ## [1.0.3] - 2025-08-25
