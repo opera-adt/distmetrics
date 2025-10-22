@@ -16,7 +16,7 @@ class SpatioTemporalTransformer(nn.Module):
         activation: str,
         patch_size: int,
         data_dim: int,
-        input_size: int = 16,
+        input_size: int,
     ) -> None:
         super().__init__()
 

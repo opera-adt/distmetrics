@@ -3,7 +3,7 @@
   "input_size": 16,
   "data_dim": 32,
   "d_model": 128,
-  "nhead": 16,
+  "nhead": 8,
   "num_encoder_layers": 2,
   "dim_feedforward": 384,
   "max_seq_len": 30,
