@@ -7,6 +7,11 @@ and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.5] - 2025-10-24
+
+### Fixed
+* Proper model validation for `mahalanobis.py` pydantic models - removes warnings during test time.
+
 ## [1.0.4] - 2025-10-02
 
 ### Fixed

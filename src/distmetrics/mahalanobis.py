@@ -12,13 +12,15 @@ class MahalanobisDistance1d(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def check_shape(cls, values: dict) -> 'MahalanobisDistance1d':
-        dist = values.dist if not isinstance(values.dist, list) else values.dist[0]
-        mean = values.mean
-        std = values.std
+    def check_shape(self) -> 'MahalanobisDistance1d':
+        dist = self.dist if not isinstance(self.dist, list) else self.dist[0]
+        mean = self.mean
+        std = self.std
 
         if any([dist.shape != arr.shape for arr in [std, mean]]):
             raise ValueError('All arrays must have same shape')
+
+        return self
 
 
 class MahalanobisDistance2d(BaseModel):
@@ -30,22 +32,22 @@ class MahalanobisDistance2d(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def check_covariance_shape(cls, values: dict) -> 'MahalanobisDistance2d':
+    def check_covariance_shape(self) -> 'MahalanobisDistance2d':
         """Check that our covariance matrix is of the form 2 x 2 x H x W."""
-        cov = values.cov
-        cov_inv = values.cov_inv
-        dist = values.dist if not isinstance(values.dist, list) else values.dist[0]
+        cov = self.cov
+        cov_inv = self.cov_inv
+        dist = self.dist if not isinstance(self.dist, list) else self.dist[0]
         expected_shape_cov = (2, 2, dist.shape[0], dist.shape[1])
         for cov_mat in [cov, cov_inv]:
             if expected_shape_cov != cov_mat.shape:
                 expected_shape_s = ' x '.join(expected_shape_cov)
                 raise ValueError(f'Covariance matrices must be of the form {expected_shape_s}')
 
-        mean = values.mean
+        mean = self.mean
         expected_shape_mean = (2, dist.shape[0], dist.shape[1])
         if not (mean.shape == expected_shape_mean):
             raise ValueError(f'Mean array needs to have shape {expected_shape_mean}')
-        return values
+        return self
 
 
 def get_spatiotemporal_mu_1d(arrs: np.ndarray, window_size: int = 3) -> np.ndarray:
