@@ -13,7 +13,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Function to organize burst time series into windowed data
   
 ### Fixed
-* Notebook's curation of data for burst application
+* Notebook's curation of data for burst application.
 
 ## [1.0.4] - 2025-10-02
 
