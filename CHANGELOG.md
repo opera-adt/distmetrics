@@ -14,10 +14,6 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   
 ### Fixed
 * Notebook's curation of data for burst application.
-
-## [1.0.5] - 2025-10-24
-
-### Fixed
 * Proper model validation for `mahalanobis.py` pydantic models - removes warnings during test time.
 
 ## [1.0.4] - 2025-10-02
