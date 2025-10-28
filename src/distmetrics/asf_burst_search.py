@@ -66,3 +66,42 @@ def get_asf_rtc_burst_ts(burst_id: str, select_polarization: str = 'VV+VH') -> g
     df_rtc_ts = df_rtc_ts.drop_duplicates(subset=['dedup_id']).reset_index(drop=True)
     df_rtc_ts.drop(columns=['dedup_id'])
     return df_rtc_ts
+
+
+def get_pre_post_df_rtc_df(
+    df_rtc_ts: gpd.GeoDataFrame,
+    event_time: pd.Timestamp,
+    n_anniversaries: int = 3,
+    n_pre_imgs: int = 20,
+    n_imgs_per_anniversary: tuple[int, ...] | int | None = None,
+) -> list[int]:
+    if n_imgs_per_anniversary is None:
+        min_imgs = n_pre_imgs // n_anniversaries
+        remainder = n_pre_imgs % n_anniversaries
+        n_imgs_per_anniversary = (min_imgs + remainder,) + (min_imgs,) * (n_anniversaries - 1)
+    if isinstance(n_imgs_per_anniversary, int):
+        n_imgs_per_anniversary = (n_imgs_per_anniversary,) * n_anniversaries
+    if n_anniversaries != len(n_imgs_per_anniversary):
+        raise ValueError('The length of the tuple `n_imgs_per_year` needs to be `n_years`.')
+
+    df_rtc_ts_sorted = df_rtc_ts.sort_values(by='acq_datetime').reset_index(drop=True)
+
+    # Get the earliest post_event
+    df_post_all = df_rtc_ts_sorted[df_rtc_ts_sorted.acq_datetime >= event_time].reset_index(drop=True)
+    df_post_prod = df_post_all.iloc[:1]
+    df_post_prod['input_category'] = 'post'
+
+    # Get all pre-events
+    df_pre_all = df_rtc_ts_sorted[df_rtc_ts_sorted.acq_datetime < event_time].reset_index(drop=True)
+
+    df_pre_prod = gpd.GeoDataFrame()
+    for n_year, n_imgs_per_year in zip(range(n_anniversaries), n_imgs_per_anniversary):
+        start = event_time - pd.Timedelta(days=365 * (n_year + 2))
+        stop = event_time - pd.Timedelta(days=365 * (n_year + 1))
+        window_ind = df_pre_all.acq_datetime.between(start, stop)
+        df_pre_year = df_pre_all[window_ind].tail(n_imgs_per_year)
+        df_pre_year['input_category'] = 'pre'
+        df_pre_prod = pd.concat([df_pre_prod, df_pre_year])
+    df_prod = pd.concat([df_pre_prod, df_post_prod]).reset_index(drop=True)
+    df_prod = df_prod.sort_values(by='acq_datetime').reset_index(drop=True)
+    return df_prod
