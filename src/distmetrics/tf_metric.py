@@ -41,6 +41,8 @@ def compute_transformer_zscore(
     agg: str | Callable = 'max',
     memory_strategy: str = 'high',
     device: str | None = None,
+    tile_size: int | None = None,
+    tile_overlap: int = 16,
 ) -> DiagMahalanobisDistance2d:
     """
     Compute the transformer z-score.

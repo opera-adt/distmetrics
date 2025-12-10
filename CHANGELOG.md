@@ -7,6 +7,14 @@ and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/)
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.6] - 2025-12-05
+
+### Changed
+* Use einops's rearrange instead of view/permute.
+
+### Added
+* In-memory inference tiling to reduce memory overhead of larger models
+
 ## [1.0.5] - 2025-10-27
 
 ### Added

@@ -5,10 +5,12 @@ import numpy as np
 import torch
 import torch.mps
 import torch.nn.functional as F
+from einops import rearrange
 from tqdm.auto import tqdm
 
 from distmetrics.mahalanobis import _transform_pre_arrs
 from distmetrics.model_load import TORCH_DTYPE_MAP, control_flow_for_device
+from distmetrics.tiling import get_tile_generator, reconstruct_from_generator
 
 
 def unfolding_stream(
@@ -164,8 +166,7 @@ def _estimate_params_via_streamed_patches(
 @torch.inference_mode()
 def _estimate_params_via_folding(
     model: torch.nn.Module,
-    imgs_copol: list[np.ndarray],
-    imgs_crosspol: list[np.ndarray],
+    imgs_baseline: np.ndarray,
     stride: int = 2,
     batch_size: int = 32,
     device: str | None = None,
@@ -181,13 +182,12 @@ def _estimate_params_via_folding(
     ----------
     model : torch.nn.Module
         transformer with chip (or patch size) 16, make sure your model is in evaluation mode
-    pre_imgs_vv : list[np.ndarray]
-    pre_imgs_vh : list[np.ndarray]
-        _description_
+    imgs_baseline: np.ndarray
+        Baseline images to estimate the mean and sigma of. Shape should be T x 2 x H x W.
     stride : int, optional
         Should be between 1 and 16, by default 2.
-    stride : int, optional
-        How to batch chips.
+    batch_size : int, optional
+        How to batch chips through the model, defaults to 32.
     device : str | None, optional
         Device to run the model on. If None, will use the best device available.
         Acceptable values are 'cpu', 'cuda', 'mps'. Defaults to None.
@@ -208,47 +208,33 @@ def _estimate_params_via_folding(
     - Applied model to images where mask values are assigned 1e-7
     """
     input_size = model.input_size
-    assert stride <= input_size
-    assert stride > 0
-
-    if dtype not in TORCH_DTYPE_MAP.keys():
-        raise ValueError(f'dtype must be one of {", ".join(TORCH_DTYPE_MAP.keys())}, got {dtype}')
     torch_dtype = TORCH_DTYPE_MAP[dtype]
-
-    device = control_flow_for_device(device)
-
-    # stack to T x 2 x H x W
-    pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
-    pre_imgs_stack = pre_imgs_stack.astype('float32')
-
     # Mask
-    mask_stack = np.isnan(pre_imgs_stack)
+    mask_stack = np.isnan(imgs_baseline)
     # Remove T x 2 dims
     mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1))).to(device)
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
     # This really only works for logits - this effectively puts the logit values at 0
     # TODO: generalize this for non-logits
-    pre_imgs_stack[mask_stack] = fill_value
+    imgs_baseline_torch = torch.from_numpy(imgs_baseline)
+    imgs_baseline_torch[mask_stack] = fill_value
 
     # H x W
-    H, W = pre_imgs_stack.shape[-2:]
-    T = pre_imgs_stack.shape[0]
-    C = pre_imgs_stack.shape[1]
+    H, W = imgs_baseline_torch.shape[-2:]
+    C = imgs_baseline_torch.shape[1]
 
     # Sliding window
     n_patches_y = int(np.floor((H - input_size) / stride) + 1)
     n_patches_x = int(np.floor((W - input_size) / stride) + 1)
     n_patches = n_patches_y * n_patches_x
 
-    # Shape (T x 2 x H x W)
-    pre_imgs_stack_t = torch.from_numpy(pre_imgs_stack).to(device, dtype=torch_dtype)
     # T x (2 * P**2) x n_patches
-    patches = F.unfold(pre_imgs_stack_t, kernel_size=input_size, stride=stride)
-    # n_patches x T x (C * P**2)
-    patches = patches.permute(2, 0, 1).to(device, dtype=torch_dtype)
-    # n_patches x T x C x P**2
-    patches = patches.view(n_patches, T, C, input_size**2)
+    patches = F.unfold(imgs_baseline_torch, kernel_size=input_size, stride=stride)
+    # T x (C * P**2) x n_patches -> n_patches x T x (C * P**2)
+    patches = rearrange(patches, 't c_p2 n_patches -> n_patches t c_p2').to(device, dtype=torch_dtype)
+    # n_patches x T x (C * P**2) -> n_patches x T x C x P**2
+    patches = rearrange(patches, 'n_patches t (c p2) -> n_patches t c p2', c=C)
 
     n_batches = math.ceil(n_patches / batch_size)
 
@@ -263,21 +249,24 @@ def _estimate_params_via_folding(
         disable=(not tqdm_enabled),
         dynamic_ncols=True,
     ):
-        # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
         batch_s = slice(batch_size * i, batch_size * (i + 1))
-        patch_batch = patches[batch_s, ...].view(-1, T, C, input_size, input_size)
+        # batch x T x C x P**2 -> batch x T x C x P x P
+        patch_batch = rearrange(
+            patches[batch_s, ...], 'batch t c (p1 p2) -> batch t c p1 p2', p1=input_size, p2=input_size
+        )
         chip_mean, chip_logvar = model(patch_batch)
         pred_means_p[batch_s, ...] += chip_mean
         pred_logvars_p[batch_s, ...] += chip_logvar
     del patches
     torch.cuda.empty_cache()
 
-    # n_patches x C x P x P -->  (C * P**2) x n_patches
-    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * input_size**2).permute(1, 0)
+    # n_patches x C x P x P -> (C * P * P) x n_patches
+    pred_logvars_p_reshaped = rearrange(pred_logvars_p, 'n_patches c p1 p2 -> (c p1 p2) n_patches')
     pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=input_size, stride=stride)
     del pred_logvars_p
 
-    pred_means_p_reshaped = pred_means_p.view(n_patches, C * input_size**2).permute(1, 0)
+    # n_patches x C x P x P -> (C * P * P) x n_patches
+    pred_means_p_reshaped = rearrange(pred_means_p, 'n_patches c p1 p2 -> (c p1 p2) n_patches')
     pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=input_size, stride=stride)
     del pred_means_p_reshaped
 
@@ -311,6 +300,8 @@ def estimate_normal_params(
     device: str | None = None,
     dtype: str = 'float32',
     fill_value: float = 0,
+    tile_size: int | None = None,
+    tile_overlap: int = 16,
 ) -> tuple[np.ndarray]:
     if memory_strategy not in ['high', 'low']:
         raise ValueError('memory strategy must be high or low')
@@ -319,11 +310,26 @@ def estimate_normal_params(
         _estimate_params_via_folding if memory_strategy == 'high' else _estimate_params_via_streamed_patches
     )
 
-    mask_spatial = np.isnan(imgs_copol[0])
+    input_size = model.input_size
+    assert stride <= input_size
+    assert stride > 0
+
+    if dtype not in TORCH_DTYPE_MAP.keys():
+        raise ValueError(f'dtype must be one of {", ".join(TORCH_DTYPE_MAP.keys())}, got {dtype}')
+
+    device = control_flow_for_device(device)
+
+    # stack to T x 2 x H x W
+    imgs_baseline = _transform_pre_arrs(imgs_copol, imgs_crosspol)
+    imgs_baseline = imgs_baseline.astype('float32')
+
+    mask_spatial_latest = np.isnan(imgs_copol[-1])
+
+    if tile_size is not None:
+        tile_gen, info = get_tile_generator(imgs_baseline, tile_size, tile_overlap)
     mu, sigma = estimate_norm_params(
         model,
-        imgs_copol,
-        imgs_crosspol,
+        imgs_baseline,
         stride=stride,
         batch_size=batch_size,
         tqdm_enabled=tqdm_enabled,
@@ -331,6 +337,6 @@ def estimate_normal_params(
         dtype=dtype,
         fill_value=fill_value,
     )
-    mu[:, mask_spatial] = np.nan
-    sigma[:, mask_spatial] = np.nan
+    mu[:, mask_spatial_latest] = np.nan
+    sigma[:, mask_spatial_latest] = np.nan
     return mu, sigma
