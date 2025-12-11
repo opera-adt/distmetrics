@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Union
+from typing import Self, Union
 
 import numpy as np
 import torch
@@ -17,16 +17,17 @@ class DiagMahalanobisDistance2d(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def check_shapes(cls, values: dict) -> dict:
+    def check_shapes(self) -> Self:
         """Check the covariance matrix is of the form 2 x 2 x H x W."""
-        d = values.dist
-        mu = values.mean
-        sigma = values.std
+        d = self.dist
+        mu = self.mean
+        sigma = self.std
 
         if mu.shape != sigma.shape:
             raise ValueError('mean and std must have the same shape')
         if d.shape != sigma.shape[1:]:
             raise ValueError('The mean/std must have same spatial dimensions as dist')
+        return self
 
 
 def compute_transformer_zscore(
@@ -70,6 +71,8 @@ def compute_transformer_zscore(
         tqdm_enabled=tqdm_enabled,
         memory_strategy=memory_strategy,
         device=device,
+        tile_size=tile_size,
+        tile_overlap=tile_overlap,
     )
 
     post_arr_s = np.stack([post_arr_copol, post_arr_crosspol], axis=0)

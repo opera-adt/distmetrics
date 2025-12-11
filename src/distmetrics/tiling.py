@@ -2,22 +2,20 @@ import math
 from collections.abc import Generator
 
 import numpy as np
+from tqdm import tqdm
 
 
-def get_tile_generator(array: np.ndarray, win_size: int, step: int) -> tuple[Generator[np.ndarray, None, None], dict]:
-    assert len(array.shape) == 5, 'array must be 5D'
-    _, _, c, h, w = array.shape
+def get_tile_generator(
+    array: np.ndarray, win_size: int, step: int
+) -> tuple[Generator[tuple[np.ndarray, tuple], None, None], dict]:
+    assert len(array.shape) == 4, 'array must be 4D'
+    _, _, h, w = array.shape
 
     n_steps_h = math.ceil((h - win_size) / step) + 1
     n_steps_w = math.ceil((w - win_size) / step) + 1
 
     target_h = (n_steps_h - 1) * step + win_size
     target_w = (n_steps_w - 1) * step + win_size
-
-    pad_h = target_h - h
-    pad_w = target_w - w
-
-    array_padded = np.pad(array, ((0, 0), (0, 0), (0, 0), (0, pad_h), (0, pad_w)), mode='constant')
 
     info = {
         'orig_h': h,
@@ -33,59 +31,73 @@ def get_tile_generator(array: np.ndarray, win_size: int, step: int) -> tuple[Gen
         'dtype': array.dtype,
     }
 
-    def generator() -> Generator[np.ndarray, None, None]:
-        for i in range(n_steps_h):
-            for j in range(n_steps_w):
-                h_start = i * step
-                w_start = j * step
-                h_end = h_start + win_size
-                w_end = w_start + win_size
+    def generator() -> Generator[tuple[np.ndarray, tuple], None, None]:
+        total = n_steps_h * n_steps_w
+        with tqdm(total=total, desc='Processing tiles') as pbar:
+            for i in range(n_steps_h):
+                for j in range(n_steps_w):
+                    h_start = i * step
+                    w_start = j * step
+                    h_end = min(h_start + win_size, h)
+                    w_end = min(w_start + win_size, w)
 
-                tile = array_padded[..., h_start:h_end, w_start:w_end]
-                yield tile
+                    # Extract tile from original array
+                    tile = array[..., h_start:h_end, w_start:w_end]
+
+                    # Pad only this tile if needed (at boundaries)
+                    actual_h, actual_w = tile.shape[-2:]
+                    if actual_h < win_size or actual_w < win_size:
+                        pad_h = win_size - actual_h
+                        pad_w = win_size - actual_w
+                        tile = np.pad(tile, ((0, 0), (0, 0), (0, pad_h), (0, pad_w)), mode='edge')
+
+                    pbar.update(1)
+                    # Yield tile and its coordinates (i, j indices)
+                    yield tile, (i, j)
 
     return generator(), info
 
 
-def reconstruct_from_generator(tile_gen: Generator[np.ndarray, None, None], info: dict) -> np.ndarray:
+def reconstruct_from_generator(
+    tile_gen: Generator[tuple[np.ndarray, np.ndarray, tuple], None, None], info: dict
+) -> np.ndarray:
     padded_shape = (info['padded_h'], info['padded_w'])
     orig_shape = (info['orig_h'], info['orig_w'])
     win_h, win_w = info['win_h'], info['win_w']
     step_h, step_w = info['step_h'], info['step_w']
 
-    output_canvas = None
-    count_canvas = None
+    means_acc = None
+    var_acc = None
+    count_acc = None
 
-    for i in range(info['n_steps_h']):
-        for j in range(info['n_steps_w']):
-            # Get the processed tile from your function
-            try:
-                processed_tile = next(tile_gen)
-            except StopIteration:
-                break
+    # Iterate through all tiles
+    for mean_tile, var_tile, (i, j) in tile_gen:
+        if means_acc is None:
+            c, _, _ = mean_tile.shape
+            out_shape = (c, padded_shape[0], padded_shape[1])
 
-            if output_canvas is None:
-                b, t, c, _, _ = processed_tile.shape
-                full_shape = (b, t, c, padded_shape[0], padded_shape[1])
+            means_acc = np.zeros(out_shape, dtype=mean_tile.dtype)
+            var_acc = np.zeros(out_shape, dtype=mean_tile.dtype)
+            count_acc = np.zeros(out_shape, dtype=np.float32)
 
-                output_canvas = np.zeros(full_shape, dtype=processed_tile.dtype)
-                count_canvas = np.zeros(full_shape, dtype=np.float32)
+            # Create a weight mask for a single tile (usually all ones)
+            tile_weights = np.ones((c, win_h, win_w), dtype=np.float32)
 
-                # Create a weight mask for a single tile (usually all ones)
-                tile_weights = np.ones((b, t, c, win_h, win_w), dtype=np.float32)
+        h_start = i * step_h
+        h_end = h_start + win_h
+        w_start = j * step_w
+        w_end = w_start + win_w
 
-            h_start = i * step_h
-            h_end = h_start + win_h
-            w_start = j * step_w
-            w_end = w_start + win_w
+        means_acc[..., h_start:h_end, w_start:w_end] += mean_tile
+        var_acc[..., h_start:h_end, w_start:w_end] += var_tile
+        count_acc[..., h_start:h_end, w_start:w_end] += tile_weights
 
-            output_canvas[..., h_start:h_end, w_start:w_end] += processed_tile
-            count_canvas[..., h_start:h_end, w_start:w_end] += tile_weights
+    count_acc[count_acc == 0] = 1.0
 
-    count_canvas[count_canvas == 0] = 1.0
+    mean_out = means_acc / count_acc
+    var_out = var_acc / count_acc
 
-    reconstructed = output_canvas / count_canvas
+    mean_out = mean_out[..., : orig_shape[0], : orig_shape[1]]
+    var_out = var_out[..., : orig_shape[0], : orig_shape[1]]
 
-    final_output = reconstructed[..., : orig_shape[0], : orig_shape[1]]
-
-    return final_output
+    return mean_out, var_out

@@ -1,5 +1,7 @@
 import math
+import tempfile
 from collections.abc import Generator
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -53,15 +55,14 @@ def unfolding_stream(
 @torch.inference_mode()
 def _estimate_params_via_streamed_patches(
     model: torch.nn.Module,
-    imgs_copol: list[np.ndarray],
-    imgs_crosspol: list[np.ndarray],
+    imgs_baseline: np.ndarray,
     stride: int = 2,
     batch_size: int = 32,
     max_nodata_ratio: float = 0.1,
     tqdm_enabled: bool = True,
     device: str | None = None,
-    dtype: str = 'float32',
     fill_value: float = 0,
+    dtype: str = 'float32',
 ) -> tuple[np.ndarray]:
     """Estimate the mean and sigma of the normal distribution of logit input images using low-memory strategy.
 
@@ -71,9 +72,6 @@ def _estimate_params_via_streamed_patches(
     ----------
     model : torch.nn.Module
         transformer with chip (or patch size) 16
-    pre_imgs_vv : list[np.ndarray]
-    pre_imgs_vh : list[np.ndarray]
-        _description_
     stride : int, optional
         Should be between 1 and 16, by default 2.
     batch_size : int, optional
@@ -94,31 +92,20 @@ def _estimate_params_via_streamed_patches(
     - Applied model to images where mask values are assigned 1e-7
     """
     input_size = model.input_size
-    assert stride <= input_size
-    assert stride > 0
-
-    if dtype not in TORCH_DTYPE_MAP.keys():
-        raise ValueError(f'dtype must be one of {", ".join(TORCH_DTYPE_MAP.keys())}, got {dtype}')
-    torch_dtype = TORCH_DTYPE_MAP[dtype]
-
-    device = control_flow_for_device(device)
-
-    # stack to T x 2 x H x W
-    pre_imgs_stack = _transform_pre_arrs(imgs_copol, imgs_crosspol)
-    pre_imgs_stack = pre_imgs_stack.astype('float32')
 
     # Mask
-    mask_stack = np.isnan(pre_imgs_stack)
+    mask_stack = np.isnan(imgs_baseline)
     # Remove T x 2 dims
     mask_spatial = torch.from_numpy(np.any(mask_stack, axis=(0, 1))).to(device)
     assert len(mask_spatial.shape) == 2, 'spatial mask should be 2d'
 
     # Logit transformation
-    pre_imgs_stack[mask_stack] = 1e-7
-    pre_imgs_stack_t = torch.from_numpy(pre_imgs_stack).to(device, dtype=torch_dtype)
+    imgs_baseline[mask_stack] = fill_value
+    torch_dtype = TORCH_DTYPE_MAP[dtype]
+    imgs_baseline_torch = torch.from_numpy(imgs_baseline).to(device, dtype=torch_dtype)
 
     # C x H x W
-    C, H, W = pre_imgs_stack.shape[-3:]
+    C, H, W = imgs_baseline.shape[-3:]
 
     # Sliding window
     n_patches_y = int(np.floor((H - input_size) / stride) + 1)
@@ -132,7 +119,7 @@ def _estimate_params_via_streamed_patches(
     pred_means = torch.zeros(*target_shape).to(device, dtype=torch_dtype)
     pred_logvars = torch.zeros(*target_shape).to(device, dtype=torch_dtype)
 
-    unfold_gen = unfolding_stream(pre_imgs_stack_t, input_size, stride, batch_size)
+    unfold_gen = unfolding_stream(imgs_baseline_torch, input_size, stride, batch_size)
 
     for patch_batch, slices in tqdm(
         unfold_gen,
@@ -217,7 +204,7 @@ def _estimate_params_via_folding(
 
     # This really only works for logits - this effectively puts the logit values at 0
     # TODO: generalize this for non-logits
-    imgs_baseline_torch = torch.from_numpy(imgs_baseline)
+    imgs_baseline_torch = torch.from_numpy(imgs_baseline).to(device, dtype=torch_dtype)
     imgs_baseline_torch[mask_stack] = fill_value
 
     # H x W
@@ -302,6 +289,7 @@ def estimate_normal_params(
     fill_value: float = 0,
     tile_size: int | None = None,
     tile_overlap: int = 16,
+    use_memmap: bool = True,
 ) -> tuple[np.ndarray]:
     if memory_strategy not in ['high', 'low']:
         raise ValueError('memory strategy must be high or low')
@@ -326,17 +314,70 @@ def estimate_normal_params(
     mask_spatial_latest = np.isnan(imgs_copol[-1])
 
     if tile_size is not None:
-        tile_gen, info = get_tile_generator(imgs_baseline, tile_size, tile_overlap)
-    mu, sigma = estimate_norm_params(
-        model,
-        imgs_baseline,
-        stride=stride,
-        batch_size=batch_size,
-        tqdm_enabled=tqdm_enabled,
-        device=device,
-        dtype=dtype,
-        fill_value=fill_value,
-    )
+        step = tile_size - tile_overlap
+
+        if use_memmap:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmpdir_path = Path(tmpdir)
+                memmap_path = tmpdir_path / 'imgs_baseline.dat'
+
+                imgs_baseline_memmap = np.memmap(memmap_path, dtype='float32', mode='w+', shape=imgs_baseline.shape)
+                imgs_baseline_memmap[:] = imgs_baseline[:]
+                imgs_baseline_memmap.flush()
+                del imgs_baseline
+
+                tile_gen, info = get_tile_generator(imgs_baseline_memmap, tile_size, step)
+
+                def apply_normal_params_to_tiles(
+                    input_gen: Generator[tuple[np.ndarray, tuple], None, None],
+                ) -> Generator[tuple[np.ndarray, np.ndarray, tuple], None, None]:
+                    for raw_tile, coords in input_gen:
+                        mu_tile, sigma_tile = estimate_norm_params(
+                            model,
+                            raw_tile,
+                            stride=stride,
+                            batch_size=batch_size,
+                            tqdm_enabled=False,
+                            device=device,
+                            dtype=dtype,
+                            fill_value=fill_value,
+                        )
+                        yield mu_tile, sigma_tile, coords
+
+                processed_gen = apply_normal_params_to_tiles(tile_gen)
+                mu, sigma = reconstruct_from_generator(processed_gen, info)
+        else:
+            tile_gen, info = get_tile_generator(imgs_baseline, tile_size, step)
+
+            def apply_normal_params_to_tiles(
+                input_gen: Generator[tuple[np.ndarray, tuple], None, None],
+            ) -> Generator[tuple[np.ndarray, np.ndarray, tuple], None, None]:
+                for raw_tile, coords in input_gen:
+                    mu_tile, sigma_tile = estimate_norm_params(
+                        model,
+                        raw_tile,
+                        stride=stride,
+                        batch_size=batch_size,
+                        tqdm_enabled=False,
+                        device=device,
+                        dtype=dtype,
+                        fill_value=fill_value,
+                    )
+                    yield mu_tile, sigma_tile, coords
+
+            processed_gen = apply_normal_params_to_tiles(tile_gen)
+            mu, sigma = reconstruct_from_generator(processed_gen, info)
+    else:
+        mu, sigma = estimate_norm_params(
+            model,
+            imgs_baseline,
+            stride=stride,
+            batch_size=batch_size,
+            tqdm_enabled=tqdm_enabled,
+            device=device,
+            dtype=dtype,
+            fill_value=fill_value,
+        )
     mu[:, mask_spatial_latest] = np.nan
     sigma[:, mask_spatial_latest] = np.nan
     return mu, sigma

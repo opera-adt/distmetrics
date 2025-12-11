@@ -14,6 +14,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 * In-memory inference tiling to reduce memory overhead of larger models
+* Fix warnings with pydantic Mahalonobis2D in tf_metric.py
 
 ## [1.0.5] - 2025-10-27
 

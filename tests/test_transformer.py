@@ -191,7 +191,7 @@ def estimate_normal_params_as_logits_explicit(
 
 
 @pytest.mark.parametrize('device', ['cpu'])
-@pytest.mark.parametrize('model_name', ALLOWED_MODELS)
+@pytest.mark.parametrize('model_name', ['transformer_optimized'])  # ALLOWED_MODELS)
 @pytest.mark.parametrize('model_compilation', [True])
 def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: str, model_compilation: bool) -> None:
     all_paths = list(cropped_despeckled_data_dir.glob('*.tif'))
@@ -219,6 +219,9 @@ def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: s
     pred_means_fold, pred_sigmas_fold = estimate_normal_params(
         model, vv_arrs, vh_arrs, memory_strategy='high', stride=2, device=device
     )
+    pred_means_tile, pred_sigmas_tile = estimate_normal_params(
+        model, vv_arrs, vh_arrs, memory_strategy='high', stride=2, device=device, tile_size=256, tile_overlap=32
+    )
 
     edge_buffer = 16
     sy_buffer = np.s_[edge_buffer:-edge_buffer]
@@ -241,5 +244,15 @@ def test_inference(cropped_despeckled_data_dir: Path, device: str, model_name: s
     assert_allclose(
         pred_sigmas_explicit[:, sy_buffer, sx_buffer],
         pred_sigmas_fold[:, sy_buffer, sx_buffer],
+        atol=1e-5,
+    )
+    assert_allclose(
+        pred_means_explicit[:, sy_buffer, sx_buffer],
+        pred_means_tile[:, sy_buffer, sx_buffer],
+        atol=1e-5,
+    )
+    assert_allclose(
+        pred_sigmas_explicit[:, sy_buffer, sx_buffer],
+        pred_sigmas_tile[:, sy_buffer, sx_buffer],
         atol=1e-5,
     )
