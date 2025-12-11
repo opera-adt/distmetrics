@@ -14,7 +14,7 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Function to organize burst time series into windowed data
 
 ### Changed
-* Removed view/permute in favor of more readable einops to ensure self-documenting reshaping
+* Removed view/permute in favor of more readable einops to ensure self-documenting reshaping, transposing, etc
   
 ### Fixed
 * Notebook's curation of data for burst application.
