@@ -74,7 +74,7 @@ class SpatioTemporalTransformer(nn.Module):
         return self._num_parameters
 
     def forward(self, img_baseline: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        batch_size, seq_len, channels, height, width = img_baseline.shape
+        _, seq_len, channels, height, width = img_baseline.shape
 
         if seq_len > self.max_seq_len:
             raise ValueError(f'seq_len must be less than or equal to max_seq_len, got {seq_len} and {self.max_seq_len}')
@@ -93,17 +93,15 @@ class SpatioTemporalTransformer(nn.Module):
             + self.temporal_pos_embed[:, (self.max_seq_len - seq_len) :, :, :]
         )  # batch, seq_len, num_patches, d_model
 
-        img_baseline = img_baseline.view(
-            batch_size, seq_len * self.num_patches, self.d_model
-        )  # transformer expects (batch_size, sequence, dmodel)
+        img_baseline = einops.rearrange(img_baseline, 'b t p d -> b (t p) d')
 
         output = self.transformer_encoder(img_baseline)
 
         mean = self.mean_out(output)  # batchsize, seq_len*num_patches, data_dim
         logvar = self.logvar_out(output)  # batchsize, seq_len*num_patches, 2*data_dim
 
-        mean = mean.view(batch_size, seq_len, self.num_patches, self.data_dim)  # undo previous operation
-        logvar = logvar.view(batch_size, seq_len, self.num_patches, self.data_dim)
+        mean = einops.rearrange(mean, 'b (t p) d -> b t p d', t=seq_len, p=self.num_patches)
+        logvar = einops.rearrange(logvar, 'b (t p) d -> b t p d', t=seq_len, p=self.num_patches)
 
         # reshape to be the same shape as input batch_size, seq len, channels, height, width
         mean = einops.rearrange(
