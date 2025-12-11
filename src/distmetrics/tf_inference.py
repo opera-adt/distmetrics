@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.mps
 import torch.nn.functional as F
+from einops import rearrange
 from tqdm.auto import tqdm
 
 from distmetrics.mahalanobis import _transform_pre_arrs
@@ -231,9 +232,7 @@ def _estimate_params_via_folding(
     # TODO: generalize this for non-logits
     pre_imgs_stack[mask_stack] = fill_value
 
-    # H x W
     H, W = pre_imgs_stack.shape[-2:]
-    T = pre_imgs_stack.shape[0]
     C = pre_imgs_stack.shape[1]
 
     # Sliding window
@@ -243,12 +242,10 @@ def _estimate_params_via_folding(
 
     # Shape (T x 2 x H x W)
     pre_imgs_stack_t = torch.from_numpy(pre_imgs_stack).to(device, dtype=torch_dtype)
-    # T x (2 * P**2) x n_patches
+    # T x (C * P**2) x n_patches
     patches = F.unfold(pre_imgs_stack_t, kernel_size=input_size, stride=stride)
-    # n_patches x T x (C * P**2)
-    patches = patches.permute(2, 0, 1).to(device, dtype=torch_dtype)
     # n_patches x T x C x P**2
-    patches = patches.view(n_patches, T, C, input_size**2)
+    patches = rearrange(patches, 't (c p_sq) n -> n t c p_sq', c=C).to(device, dtype=torch_dtype)
 
     n_batches = math.ceil(n_patches / batch_size)
 
@@ -263,9 +260,8 @@ def _estimate_params_via_folding(
         disable=(not tqdm_enabled),
         dynamic_ncols=True,
     ):
-        # change last dimension from P**2 to P, P; use -1 because won't always have batch_size as 0th dimension
         batch_s = slice(batch_size * i, batch_size * (i + 1))
-        patch_batch = patches[batch_s, ...].view(-1, T, C, input_size, input_size)
+        patch_batch = rearrange(patches[batch_s, ...], 'b t c (p1 p2) -> b t c p1 p2', p1=input_size)
         chip_mean, chip_logvar = model(patch_batch)
         pred_means_p[batch_s, ...] += chip_mean
         pred_logvars_p[batch_s, ...] += chip_logvar
@@ -273,11 +269,11 @@ def _estimate_params_via_folding(
     torch.cuda.empty_cache()
 
     # n_patches x C x P x P -->  (C * P**2) x n_patches
-    pred_logvars_p_reshaped = pred_logvars_p.view(n_patches, C * input_size**2).permute(1, 0)
+    pred_logvars_p_reshaped = rearrange(pred_logvars_p, 'n c p1 p2 -> (c p1 p2) n')
     pred_logvars = F.fold(pred_logvars_p_reshaped, output_size=(H, W), kernel_size=input_size, stride=stride)
     del pred_logvars_p
 
-    pred_means_p_reshaped = pred_means_p.view(n_patches, C * input_size**2).permute(1, 0)
+    pred_means_p_reshaped = rearrange(pred_means_p, 'n c p1 p2 -> (c p1 p2) n')
     pred_means = F.fold(pred_means_p_reshaped, output_size=(H, W), kernel_size=input_size, stride=stride)
     del pred_means_p_reshaped
 
