@@ -70,7 +70,7 @@ def compute_cusum_1d(
     if temporal_drift == 'mean':
         drift = np.nanmean(pre_arrs_t, axis=0)
     elif temporal_drift == 'median':
-        drift = np.nanmean(pre_arrs_t, axis=0)
+        drift = np.nanmedian(pre_arrs_t, axis=0)
     else:
         drift = (np.nanmax(pre_arrs_t, axis=0) + np.nanmin(pre_arrs, axis=0)) / 2.0
 
