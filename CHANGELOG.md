@@ -8,6 +8,11 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
 
+## [1.0.6] - 2025-12-11
+
+### Fixed
+* Resolves #71 - median drift in cusum was incorrect.
+
 ## [1.0.5] - 2025-10-27
 
 ### Added
