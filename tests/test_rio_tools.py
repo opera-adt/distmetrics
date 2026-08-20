@@ -19,7 +19,9 @@ def test_merge_categorical_arrays(
         arrs,
         profiles,
         merge_method='min',
-        # Different rasterio/gdal versions may treat nodata slightly differently
+        # dem_stitcher >= 3.2 masks source nodata during reprojection, so the 254-valued
+        # boundary artifacts this dilation papered over are gone; it stays at 10 because
+        # merged.tif was generated with it
         exterior_mask_dilation=10,
         # we are merging 2 datasets so need to specify the target crs as it can be random depending on which is chosen
         target_crs=profiles[1]['crs'],

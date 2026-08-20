@@ -1,3 +1,14 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+
+# Ruff
+.ruff_cache
+
+# Jupyter collaboration / sqlite state
+*.db
+.jupyter/
+
 # Deprecated Folder
 _deprecated/
 
