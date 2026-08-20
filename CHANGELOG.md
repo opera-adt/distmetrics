@@ -8,6 +8,20 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
 
+## [1.0.7]
+
+### Changed
+* Migrated environment management from conda/mamba to `pixi`; all configuration lives in `pyproject.toml` under `[tool.pixi.*]` with a committed `pixi.lock`.
+* CI test matrix now runs the explicit `py312`/`py313`/`py314` pixi environments via `prefix-dev/setup-pixi` instead of `mamba-org/setup-micromamba`.
+* Dropped the `flake8` family from the development dependencies; `ruff` (already configured) covers them, and `lint`/`format`/`fix`/`test` are now pixi tasks.
+* Removed `compilers` from the environment - the conda-forge `clang++` it provides breaks `torch.compile` on macOS (`cannot specify -o when generating multiple output files`).
+
+### Added
+* Support for python 3.14 (added to `requires-python` classifiers and the CI matrix).
+
+### Removed
+* `environment.yml` - superseded by `[tool.pixi.dependencies]` in `pyproject.toml`. `environment_gpu.yml` is retained for the CUDA setup described in the README.
+
 ## [1.0.6] - 2025-12-11
 
 ### Fixed

@@ -1,4 +1,4 @@
-name: Static Analysis (Flake8/Ruff)
+name: Static Analysis (Ruff)
 
 on: push
 

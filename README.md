@@ -91,14 +91,39 @@ There may be different distributions of pytorch and cuda drivers that are compat
 
 ### For development
 
-Clone this repository and navigate to it in your terminal. We use the python package manager `mamba`. We highly recommend mamba and the package repository `conda-forge` to organize and manage virtual environment required for this library.
+We use [pixi](https://pixi.sh/latest/#installation) to manage the development environment; all of its
+configuration lives in `pyproject.toml` under `[tool.pixi.*]` and the resolved environment is committed
+in `pixi.lock`.
 
-1. `mamba env update -f environment.yml`
-2. Activate the environment `conda activate distmetrics`
-3. Install the library with `pip` via `pip install -e .` (`-e` ensures this is editable for development)
-4. Install a notebook kernel with `python -m ipykernel install --user --name dist-s1`.
+```bash
+git clone https://github.com/opera-adt/distmetrics.git
+cd distmetrics
+pixi install
+pixi run python -c "import distmetrics"
+```
 
-Python 3.10+ is supported. When using the transformer model, if you have `gpu` available, it adviseable to check that the output from the below snippet is indeed `cuda`:
+`pixi install` installs `distmetrics` itself as an editable dependency, so no separate `pip install -e .` is
+needed. Common tasks:
+
+```bash
+pixi run test     # pytest tests
+pixi run lint     # ruff check src tests
+pixi run format   # ruff format src tests
+pixi run fix      # ruff check --fix src tests
+```
+
+For JupyterLab (with `jupyter-collaboration` for real-time collaborative editing):
+
+```bash
+pixi run jupyter lab
+```
+
+Python 3.12, 3.13, and 3.14 are supported. The default environment is the newest supported version (3.14) and
+is the only one materialized locally; the `py312`/`py313`/`py314` environments back the CI matrix. To
+reproduce a matrix failure locally, run e.g. `pixi run -e py312 pytest tests`, then reclaim the disk with
+`pixi clean -e py312`.
+
+When using the transformer model, if you have `gpu` available, it adviseable to check that the output from the below snippet is indeed `cuda`:
 
 ```
 from distmetrics import get_device
