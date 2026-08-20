@@ -11,18 +11,11 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.0.7]
 
 ### Changed
-* Migrated environment management from conda/mamba to `pixi`; all configuration lives in `pyproject.toml` under `[tool.pixi.*]` with a committed `pixi.lock`.
-* CI test matrix now runs the explicit `py312`/`py313`/`py314` pixi environments via `prefix-dev/setup-pixi` instead of `mamba-org/setup-micromamba`.
-* Dropped the `flake8` family from the development dependencies; `ruff` (already configured) covers them, and `lint`/`format`/`fix`/`test` are now pixi tasks.
-* Static analysis no longer calls `ASFHyP3/actions/.github/workflows/reusable-ruff.yml`, which installed the now-deleted `environment.yml` via micromamba. The `ruff` job is inlined and runs from a python-free `lint` pixi environment (~165 MB), so CI lints with the exact `ruff` pinned in `pixi.lock`. The `reusable-secrets-analysis.yml` (trufflehog) call is unchanged - it does not depend on the python environment.
-* Removed `compilers` from the environment - the conda-forge `clang++` it provides breaks `torch.compile` on macOS (`cannot specify -o when generating multiple output files`).
+* Migrated environment management from conda/mamba to `pixi`: all configuration lives in `pyproject.toml` under `[tool.pixi.*]` with a committed `pixi.lock`, `environment.yml` is removed, CI runs the `py312`/`py313`/`py314` pixi environments, and `lint`/`format`/`fix`/`test` are pixi tasks.
+* Requires `dem_stitcher>=3.2` (previously imported but undeclared), whose nodata reprojection fix removes the boundary artifacts `test_merge_categorical_arrays` worked around - see the [dem-stitcher changelog](https://github.com/ACCESS-Cloud-Based-InSAR/dem-stitcher/blob/dev/CHANGELOG.md). Installed from PyPI via `[tool.pixi.pypi-dependencies]` until 3.2.0 reaches conda-forge.
 
 ### Added
-* Support for python 3.14 (added to `requires-python` classifiers and the CI matrix).
-* `dem_stitcher>=3.2` is now declared as a runtime dependency (it was imported by `distmetrics.rio_tools` but never listed in `[project] dependencies`). 3.2.0 declares source nodata during reprojection, fixing the boundary artifacts in `merge_categorical_arrays` that `test_merge_categorical_arrays` masked with `exterior_mask_dilation`. Until 3.2.0 reaches conda-forge, pixi installs it from PyPI via `[tool.pixi.pypi-dependencies]`.
-
-### Removed
-* `environment.yml` - superseded by `[tool.pixi.dependencies]` in `pyproject.toml`. `environment_gpu.yml` is retained for the CUDA setup described in the README.
+* Support for python 3.14.
 
 ## [1.0.6] - 2025-12-11
 
