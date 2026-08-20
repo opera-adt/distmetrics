@@ -106,10 +106,11 @@ pixi run python -c "import distmetrics"
 needed. Common tasks:
 
 ```bash
-pixi run test     # pytest tests
-pixi run lint     # ruff check src tests
-pixi run format   # ruff format src tests
-pixi run fix      # ruff check --fix src tests
+pixi run test          # pytest tests
+pixi run lint          # ruff check
+pixi run format        # ruff format
+pixi run fix           # ruff check --fix
+pixi run format-check  # ruff format --diff
 ```
 
 For JupyterLab (with `jupyter-collaboration` for real-time collaborative editing):
@@ -122,6 +123,10 @@ Python 3.12, 3.13, and 3.14 are supported. The default environment is the newest
 is the only one materialized locally; the `py312`/`py313`/`py314` environments back the CI matrix. To
 reproduce a matrix failure locally, run e.g. `pixi run -e py312 pytest tests`, then reclaim the disk with
 `pixi clean -e py312`.
+
+The `lint` environment is python-free (~165 MB instead of the full ~1.3 GB stack) and is what CI's ruff job
+installs; the same `lint` feature is folded into `default`, so the tasks above run the exact ruff the lock
+file pins.
 
 When using the transformer model, if you have `gpu` available, it adviseable to check that the output from the below snippet is indeed `cuda`:
 
