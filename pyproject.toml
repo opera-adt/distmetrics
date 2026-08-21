@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = 'distmetrics'
 requires-python = '>=3.12'
 authors = [
-    {name ='Jungkyo Jung, Charlie Marshak, Talib Oliver-Cabrera, Richard West and OPERA Team', email ='opera-pst-dev@jpl.nasa.gov'}
+    {name ='Charlie Marshak, Talib Oliver-Cabrera, Richard West, Jungkyo Jung and OPERA Project Science Team', email ='opera-pst-dev@jpl.nasa.gov'}
 ]
 description = 'Measure Disturbances in OPERA RTC-S1 Stacks'
 license = {text = 'Apache-2.0'}
@@ -27,7 +27,6 @@ dependencies = [
         'affine',
         'asf_search',
         'astropy',
-        'backoff',
         'dem_stitcher>=3.2',
         'einops',
         'geopandas',
@@ -40,6 +39,7 @@ dependencies = [
         'scikit-image',
         'scipy',
         'shapely',
+        'tenacity',
         'tqdm',
 ]
 
@@ -168,7 +168,6 @@ test = "pytest tests"
 [tool.pixi.dependencies]
 asf_search = ">=12.3.1,<13"
 astropy = ">=8.0.1,<9"
-backoff = ">=2.2.1,<3"
 einops = ">=0.8.2,<0.9"
 gdal = ">=3.13.2,<4"
 geopandas = ">=1.1.4,<2"
@@ -188,4 +187,6 @@ scipy = ">=1.18.0,<2"
 setuptools = ">=84.0.0,<85"
 setuptools_scm = ">=10.2.1,<11"
 shapely = ">=2.1.2,<3"
+# asf_search on conda-forge currently pins tenacity ==8.2.2
+tenacity = ">=8.2.2,<10"
 tqdm = ">=4.70.0,<5"

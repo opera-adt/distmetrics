@@ -1,15 +1,20 @@
 import concurrent.futures
 import io
 
-import backoff
 import numpy as np
 import requests
 from rasterio.io import MemoryFile
-from requests.exceptions import HTTPError
+from requests.exceptions import ConnectionError, HTTPError
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, stop_after_delay, wait_random_exponential
 from tqdm import tqdm
 
 
-@backoff.on_exception(backoff.expo, (HTTPError, ConnectionError), max_tries=10, max_time=60, jitter=backoff.full_jitter)
+@retry(
+    retry=retry_if_exception_type((HTTPError, ConnectionError)),
+    stop=stop_after_attempt(10) | stop_after_delay(60),
+    wait=wait_random_exponential(multiplier=1, max=60),
+    reraise=True,
+)
 def read_bytes(
     url: str,
 ) -> bytes:
