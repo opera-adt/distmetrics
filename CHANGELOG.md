@@ -8,6 +8,15 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
 
+## [1.0.7]
+
+### Changed
+* Migrated environment management from conda/mamba to `pixi`: all configuration lives in `pyproject.toml` under `[tool.pixi.*]` with a committed `pixi.lock`, `environment.yml` is removed, CI runs the `py312`/`py313`/`py314` pixi environments, and `lint`/`format`/`fix`/`test` are pixi tasks.
+* Requires `dem_stitcher>=3.2` (previously imported but undeclared), whose nodata reprojection fix removes the boundary artifacts `test_merge_categorical_arrays` worked around - see the [dem-stitcher changelog](https://github.com/ACCESS-Cloud-Based-InSAR/dem-stitcher/blob/dev/CHANGELOG.md). Installed from PyPI via `[tool.pixi.pypi-dependencies]` until 3.2.0 reaches conda-forge.
+
+### Added
+* Support for python 3.14.
+
 ## [1.0.6] - 2025-12-11
 
 ### Fixed
