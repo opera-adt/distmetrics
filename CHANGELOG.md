@@ -8,6 +8,12 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
 
+## [1.0.8]
+
+### Changed
+* Removed backoff in favor of tenacity for retry handling as it relates to reading RTC-S1 products within this library - the latter is maintained and the former is not.
+
+
 ## [1.0.7]
 
 ### Changed
